@@ -5,6 +5,55 @@
 
 console.log('Trail Mix content script loaded');
 
+// DOM Utilities for content script
+const DOMUtils = {
+  waitForElement: async (selector, timeout = 5000) => {
+    return new Promise((resolve, reject) => {
+      const element = document.querySelector(selector);
+      if (element) {
+        resolve(element);
+        return;
+      }
+      
+      const observer = new MutationObserver(() => {
+        const element = document.querySelector(selector);
+        if (element) {
+          observer.disconnect();
+          resolve(element);
+        }
+      });
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      setTimeout(() => {
+        observer.disconnect();
+        reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+      }, timeout);
+    });
+  },
+  
+  // Safe text extraction
+  getTextContent: (element) => {
+    return element ? element.textContent.trim() : '';
+  },
+  
+  // Safe attribute extraction
+  getAttribute: (element, attribute) => {
+    return element ? element.getAttribute(attribute) : null;
+  }
+};
+
+// Export for testing
+if (typeof global !== 'undefined') {
+  global.DOMUtils = DOMUtils;
+}
+if (typeof window !== 'undefined') {
+  window.DOMUtils = DOMUtils;
+}
+
 // Initialize function (exported for testing)
 function initialize() {
   console.log('Trail Mix: DOM ready, initializing...');
@@ -179,47 +228,5 @@ async function handleScrapeAlbum(albumUrl, sendResponse) {
   }
 }
 
-// Utility functions for DOM manipulation
-const DOMUtils = {
-  // Wait for element to appear in DOM
-  waitForElement: (selector, timeout = 5000) => {
-    return new Promise((resolve, reject) => {
-      const element = document.querySelector(selector);
-      if (element) {
-        resolve(element);
-        return;
-      }
-      
-      const observer = new MutationObserver((mutations, obs) => {
-        const element = document.querySelector(selector);
-        if (element) {
-          obs.disconnect();
-          resolve(element);
-        }
-      });
-      
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-      
-      setTimeout(() => {
-        observer.disconnect();
-        reject(new Error(`Element ${selector} not found within ${timeout}ms`));
-      }, timeout);
-    });
-  },
-  
-  // Safe text extraction
-  getTextContent: (element) => {
-    return element ? element.textContent.trim() : '';
-  },
-  
-  // Safe attribute extraction
-  getAttribute: (element, attribute) => {
-    return element ? element.getAttribute(attribute) : null;
-  }
-};
-
-console.log('Bandcamp Downloader content script initialized');
+console.log('Trail Mix content script fully initialized');
 

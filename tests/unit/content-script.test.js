@@ -69,7 +69,13 @@ describe('Content Script', () => {
     });
     
     test('should log initialization message', () => {
+      // Clear previous calls
+      console.log.mockClear();
+      
+      // Load content script fresh
+      delete require.cache[require.resolve('../../content/bandcamp-scraper.js')];
       require('../../content/bandcamp-scraper.js');
+      
       expect(console.log).toHaveBeenCalledWith('Trail Mix content script loaded');
     });
   });
@@ -85,16 +91,18 @@ describe('Content Script', () => {
     });
     
     test('should handle non-Bandcamp pages', () => {
-      // Change to non-Bandcamp URL
-      Object.defineProperty(window, 'location', {
-        value: { hostname: 'example.com' },
-        writable: true
-      });
+      // Mock a different location for this test
+      const originalLocation = window.location;
+      delete window.location;
+      window.location = { hostname: 'example.com' };
       
       delete require.cache[require.resolve('../../content/bandcamp-scraper.js')];
       require('../../content/bandcamp-scraper.js');
       
       expect(window.location.hostname.includes('bandcamp.com')).toBe(false);
+      
+      // Restore original location
+      window.location = originalLocation;
     });
   });
   

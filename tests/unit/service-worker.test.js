@@ -14,7 +14,12 @@ describe('Service Worker', () => {
     // Reset all mocks
     jest.clearAllMocks();
     
-    // Load the service worker module
+    // Reset Chrome API mocks
+    chrome.runtime.onInstalled.addListener.mockClear();
+    chrome.runtime.onStartup.addListener.mockClear();
+    chrome.runtime.onMessage.addListener.mockClear();
+    
+    // Load the service worker module fresh
     delete require.cache[require.resolve('../../background/service-worker.js')];
     serviceWorker = require('../../background/service-worker.js');
   });
@@ -188,10 +193,13 @@ describe('Service Worker', () => {
     });
     
     test('should handle unhandled promise rejections', () => {
-      const rejectionEvent = new PromiseRejectionEvent('unhandledrejection', {
+      // Mock PromiseRejectionEvent for Node.js environment
+      const rejectionEvent = {
+        type: 'unhandledrejection',
         reason: new Error('Test rejection'),
-        promise: Promise.reject('test')
-      });
+        promise: Promise.resolve(), // Use resolved promise to avoid unhandled rejection
+        preventDefault: jest.fn()
+      };
       
       expect(() => {
         self.dispatchEvent(rejectionEvent);
