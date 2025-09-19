@@ -5,8 +5,7 @@
 
 const { AuthManager, authManager } = require('../../lib/auth-manager.js');
 
-// Mock Chrome APIs
-global.chrome = require('../mocks/chrome-mock.js');
+// Chrome APIs are mocked globally in tests/setup.js
 
 // Mock utils
 global.TrailMixUtils = {
@@ -25,14 +24,6 @@ describe('AuthManager', () => {
     
     // Clear all mocks
     jest.clearAllMocks();
-    
-    // Reset Chrome API mocks
-    chrome.cookies.getAll.mockClear();
-    chrome.tabs.query.mockClear();
-    chrome.tabs.create.mockClear();
-    chrome.tabs.sendMessage.mockClear();
-    chrome.tabs.remove.mockClear();
-    chrome.tabs.get.mockClear();
   });
 
   describe('Constructor', () => {

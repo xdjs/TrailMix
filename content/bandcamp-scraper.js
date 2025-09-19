@@ -5,15 +5,9 @@
 
 console.log('Trail Mix content script loaded');
 
-// Wait for DOM to be ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialize);
-} else {
-  initialize();
-}
-
+// Initialize function (exported for testing)
 function initialize() {
-  console.log('Bandcamp Downloader: DOM ready, initializing...');
+  console.log('Trail Mix: DOM ready, initializing...');
   
   // Check if we're on a Bandcamp page
   if (!isBandcampPage()) {
@@ -23,6 +17,18 @@ function initialize() {
   
   console.log('Bandcamp page detected, content script active');
   setupMessageListener();
+}
+
+// Wait for DOM to be ready (skip in test environment)
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize);
+  } else {
+    initialize();
+  }
+} else if (typeof window !== 'undefined' && window.location && window.location.hostname.includes('bandcamp.com')) {
+  // In test environment with mocked window
+  initialize();
 }
 
 // Check if current page is a Bandcamp page

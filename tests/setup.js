@@ -45,9 +45,10 @@ global.chrome = {
   }
 };
 
-// Mock console methods for cleaner test output
+// Mock console methods for cleaner test output (but preserve original)
+const originalConsole = global.console;
 global.console = {
-  ...console,
+  ...originalConsole,
   log: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -58,8 +59,8 @@ global.console = {
 // Mock window object for popup tests
 Object.defineProperty(window, 'location', {
   value: {
-    href: 'chrome-extension://test/popup/popup.html',
-    hostname: 'test'
+    href: 'https://bandcamp.com/test',
+    hostname: 'bandcamp.com'
   },
   writable: true
 });

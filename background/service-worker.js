@@ -3,13 +3,21 @@
  * Handles extension lifecycle and coordinates between components
  */
 
-// Import authentication manager
-importScripts('../lib/utils.js');
-importScripts('../lib/auth-manager.js');
+// Import authentication manager (conditional for testing)
+if (typeof importScripts !== 'undefined') {
+  importScripts('../lib/utils.js');
+  importScripts('../lib/auth-manager.js');
+} else {
+  // In test environment, modules are loaded via require
+  if (typeof require !== 'undefined') {
+    require('../lib/utils.js');
+    require('../lib/auth-manager.js');
+  }
+}
 
 // Extension lifecycle management
 chrome.runtime.onInstalled.addListener((details) => {
-  console.log('Bandcamp Downloader installed:', details.reason);
+  console.log('Trail Mix installed:', details.reason);
   
   if (details.reason === 'install') {
     // First time installation
@@ -22,7 +30,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  console.log('Bandcamp Downloader starting up');
+  console.log('Trail Mix starting up');
 });
 
 // Initialize extension defaults

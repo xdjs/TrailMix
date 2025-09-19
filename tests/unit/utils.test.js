@@ -165,7 +165,7 @@ describe('Utility Functions', () => {
         set: function(value) { this.innerHTML = value.replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
       });
       
-      global.document.createElement.mockReturnValue(mockDiv);
+      global.document.createElement = jest.fn().mockReturnValue(mockDiv);
       
       const result = StringUtils.escapeHtml('<script>alert("xss")</script>');
       expect(result).toBe('&lt;script&gt;alert("xss")&lt;/script&gt;');
