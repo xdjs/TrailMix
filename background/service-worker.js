@@ -18,7 +18,7 @@ if (typeof importScripts !== 'undefined') {
 // Extension lifecycle management
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('Trail Mix installed:', details.reason);
-  
+
   if (details.reason === 'install') {
     // First time installation
     console.log('First time installation - setting up defaults');
@@ -29,6 +29,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
+// Register startup listener
 chrome.runtime.onStartup.addListener(() => {
   console.log('Trail Mix starting up');
 });

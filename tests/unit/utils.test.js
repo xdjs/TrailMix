@@ -317,17 +317,21 @@ describe('Utility Functions', () => {
   
   describe('Module Export', () => {
     test('should export utilities in browser environment', () => {
-      // Simulate browser environment
-      delete global.module;
+      // Simulate browser environment by temporarily hiding module
+      const originalModule = global.module;
+      global.module = undefined;
       global.window = {};
-      
+
       // Re-require the module
       delete require.cache[require.resolve('../../lib/utils.js')];
       require('../../lib/utils.js');
-      
+
       expect(global.window.TrailMixUtils).toBeDefined();
       expect(global.window.TrailMixUtils.Logger).toBeDefined();
       expect(global.window.TrailMixUtils.StringUtils).toBeDefined();
+
+      // Restore module
+      global.module = originalModule;
     });
   });
 });
