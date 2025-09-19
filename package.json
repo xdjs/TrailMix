@@ -1,7 +1,7 @@
 {
-  "name": "bandcamp-downloader",
+  "name": "trail-mix",
   "version": "1.0.0",
-  "description": "Chrome extension for bulk downloading Bandcamp purchases",
+  "description": "Trail Mix - Chrome extension for bulk downloading Bandcamp purchases",
   "scripts": {
     "test": "jest",
     "test:unit": "jest tests/unit",
@@ -30,7 +30,7 @@
     "mp3",
     "metadata"
   ],
-  "author": "Bandcamp Downloader Team",
+  "author": "Trail Mix Team",
   "license": "MIT",
   "private": true,
   "engines": {

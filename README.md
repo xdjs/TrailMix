@@ -1,4 +1,4 @@
-# Bandcamp Downloader Chrome Extension
+# Trail Mix Chrome Extension
 
 A Chrome extension that allows users to bulk-download their paid Bandcamp purchases in MP3 format with embedded metadata and artwork.
 
@@ -19,7 +19,7 @@ A Chrome extension that allows users to bulk-download their paid Bandcamp purcha
 1. Clone this repository:
    ```bash
    git clone <repository-url>
-   cd bandcamp-downloader
+   cd trail-mix
    ```
 
 2. Load the extension in Chrome:
@@ -45,7 +45,7 @@ A Chrome extension that allows users to bulk-download their paid Bandcamp purcha
 ## Project Structure
 
 ```
-bandcamp-downloader/
+trail-mix/
 ├── manifest.json              # Chrome extension configuration
 ├── background/                 # Service worker and background scripts
 ├── content/                   # Content scripts for Bandcamp page interaction

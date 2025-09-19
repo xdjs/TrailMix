@@ -1,4 +1,4 @@
-# Bandcamp Downloader - Implementation Plan
+# Trail Mix - Implementation Plan
 
 ## 🎉 Project Status: Phase 1 Complete!
 
@@ -22,7 +22,7 @@
 ---
 
 ## Overview
-This document outlines the detailed implementation plan for the Bandcamp Downloader Chrome extension based on the PRD requirements. The extension will enable users to bulk-download their paid Bandcamp purchases in MP3 format with embedded metadata and artwork.
+This document outlines the detailed implementation plan for the Trail Mix Chrome extension based on the PRD requirements. The extension will enable users to bulk-download their paid Bandcamp purchases in MP3 format with embedded metadata and artwork.
 
 ## Architecture Overview
 
