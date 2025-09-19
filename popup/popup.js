@@ -86,26 +86,30 @@ async function checkAuthenticationStatus() {
   try {
     updateAuthStatus('checking', 'Checking authentication...');
     
-    // Get current active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    // Use the background script's authentication manager
+    const response = await sendMessageToBackground({ type: 'CHECK_AUTHENTICATION' });
     
-    if (!tab.url.includes('bandcamp.com')) {
-      updateAuthStatus('warning', 'Please navigate to bandcamp.com');
-      addLogEntry('Not on Bandcamp page', 'warning');
+    if (response.error) {
+      updateAuthStatus('error', 'Unable to check authentication');
+      addLogEntry(`Authentication check failed: ${response.error}`, 'error');
       return;
     }
     
-    // Send message to content script to check auth
-    const response = await chrome.tabs.sendMessage(tab.id, { type: 'CHECK_AUTH_STATUS' });
-    
-    if (response.authenticated) {
+    if (response.isAuthenticated) {
       updateAuthStatus('connected', 'Connected to Bandcamp');
       elements.startBtn.disabled = false;
+      elements.loginBtn.style.display = 'none';
       addLogEntry('Authentication verified');
+      
+      // Show user info if available
+      if (response.userInfo && response.userInfo.collectionCount !== undefined) {
+        addLogEntry(`Found ${response.userInfo.collectionCount} items in collection`);
+      }
     } else {
       updateAuthStatus('error', 'Not logged in to Bandcamp');
       elements.loginBtn.style.display = 'inline-block';
-      addLogEntry('Authentication required', 'warning');
+      elements.startBtn.disabled = true;
+      addLogEntry('Authentication required - please log in to Bandcamp', 'warning');
     }
   } catch (error) {
     console.error('Failed to check authentication:', error);

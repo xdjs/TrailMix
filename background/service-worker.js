@@ -1,7 +1,11 @@
 /**
- * Bandcamp Downloader - Service Worker
+ * Trail Mix - Service Worker
  * Handles extension lifecycle and coordinates between components
  */
+
+// Import authentication manager
+importScripts('../lib/utils.js');
+importScripts('../lib/auth-manager.js');
 
 // Extension lifecycle management
 chrome.runtime.onInstalled.addListener((details) => {
@@ -59,6 +63,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'STOP_DOWNLOAD':
       handleStopDownload(sendResponse);
       return true;
+
+    case 'CHECK_AUTHENTICATION':
+      handleCheckAuthentication(sendResponse);
+      return true;
       
     default:
       console.warn('Unknown message type:', message.type);
@@ -97,6 +105,35 @@ function handleStopDownload(sendResponse) {
   console.log('Stop download requested');
   // TODO: Implement stop logic
   sendResponse({ status: 'stopped' });
+}
+
+// Authentication handler
+async function handleCheckAuthentication(sendResponse) {
+  try {
+    console.log('Checking authentication status...');
+    
+    // Get authentication manager instance
+    const authManager = TrailMixAuth.authManager;
+    
+    // Check authentication status
+    const authStatus = await authManager.getAuthStatus();
+    
+    console.log('Authentication status:', authStatus);
+    
+    sendResponse({
+      isAuthenticated: authStatus.isAuthenticated,
+      userInfo: authStatus.userInfo,
+      lastChecked: authStatus.lastChecked,
+      cacheValid: authStatus.cacheValid
+    });
+    
+  } catch (error) {
+    console.error('Authentication check failed:', error);
+    sendResponse({ 
+      error: error.message,
+      isAuthenticated: false 
+    });
+  }
 }
 
 // Error handling

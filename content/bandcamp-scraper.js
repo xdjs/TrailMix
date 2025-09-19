@@ -47,6 +47,10 @@ function setupMessageListener() {
       case 'CHECK_AUTH_STATUS':
         handleCheckAuthStatus(sendResponse);
         return true;
+
+      case 'makeAuthenticatedRequest':
+        handleAuthenticatedRequest(message.url, sendResponse);
+        return true;
         
       default:
         console.warn('Unknown message type:', message.type);
@@ -70,6 +74,46 @@ async function handleCheckAuthStatus(sendResponse) {
   } catch (error) {
     console.error('Error checking auth status:', error);
     sendResponse({ error: error.message });
+  }
+}
+
+// Handle authenticated API requests
+async function handleAuthenticatedRequest(url, sendResponse) {
+  try {
+    console.log('Making authenticated request to:', url);
+    
+    // Make fetch request with credentials (cookies will be included)
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include', // Include cookies for authentication
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    // Try to parse as JSON
+    let data;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
+
+    console.log('Authenticated request successful');
+    sendResponse(data);
+
+  } catch (error) {
+    console.error('Authenticated request failed:', error);
+    sendResponse({ 
+      error: error.message,
+      status: 'unauthorized'
+    });
   }
 }
 
