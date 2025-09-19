@@ -82,7 +82,7 @@ describe('Popup UI', () => {
       
       expect(header).toBeTruthy();
       expect(title).toBeTruthy();
-      expect(title.textContent).toBe('Bandcamp Downloader');
+      expect(title.textContent).toBe('Trail Mix');
       expect(version).toBeTruthy();
       expect(version.textContent).toMatch(/v\d+\.\d+\.\d+/);
     });

@@ -1,9 +1,9 @@
 /**
- * Bandcamp Downloader - Content Script
+ * Trail Mix - Content Script
  * Handles DOM interaction with Bandcamp pages
  */
 
-console.log('Bandcamp Downloader content script loaded');
+console.log('Trail Mix content script loaded');
 
 // Wait for DOM to be ready
 if (document.readyState === 'loading') {

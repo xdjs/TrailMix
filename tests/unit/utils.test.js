@@ -325,9 +325,9 @@ describe('Utility Functions', () => {
       delete require.cache[require.resolve('../../lib/utils.js')];
       require('../../lib/utils.js');
       
-      expect(global.window.BandcampDownloaderUtils).toBeDefined();
-      expect(global.window.BandcampDownloaderUtils.Logger).toBeDefined();
-      expect(global.window.BandcampDownloaderUtils.StringUtils).toBeDefined();
+      expect(global.window.TrailMixUtils).toBeDefined();
+      expect(global.window.TrailMixUtils.Logger).toBeDefined();
+      expect(global.window.TrailMixUtils.StringUtils).toBeDefined();
     });
   });
 });

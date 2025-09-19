@@ -27,7 +27,7 @@ describe('Manifest.json Validation', () => {
     });
     
     test('should have required basic fields', () => {
-      expect(manifest.name).toBe('Bandcamp Downloader');
+      expect(manifest.name).toBe('Trail Mix');
       expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/); // Semantic versioning
       expect(manifest.description).toBeTruthy();
       expect(typeof manifest.description).toBe('string');
@@ -70,7 +70,7 @@ describe('Manifest.json Validation', () => {
     test('should have popup action configured', () => {
       expect(manifest.action).toBeDefined();
       expect(manifest.action.default_popup).toBe('popup/popup.html');
-      expect(manifest.action.default_title).toBe('Bandcamp Downloader');
+      expect(manifest.action.default_title).toBe('Trail Mix');
     });
     
     test('should have all required icon sizes', () => {

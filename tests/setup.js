@@ -29,7 +29,9 @@ global.chrome = {
   tabs: {
     query: jest.fn(),
     sendMessage: jest.fn(),
-    create: jest.fn()
+    create: jest.fn(),
+    remove: jest.fn(),
+    get: jest.fn()
   },
   downloads: {
     download: jest.fn(),
@@ -62,11 +64,35 @@ Object.defineProperty(window, 'location', {
   writable: true
 });
 
+// Mock importScripts for service worker tests
+global.importScripts = jest.fn();
+
+// Mock TrailMixUtils for consistent testing
+global.TrailMixUtils = {
+  logInfo: jest.fn(),
+  logError: jest.fn(),
+  logDebug: jest.fn(),
+  sanitizeString: jest.fn(str => str),
+  formatFileSize: jest.fn(size => `${size} bytes`),
+  isValidUrl: jest.fn(url => url && url.startsWith('http')),
+  createSafeFilename: jest.fn(name => name.replace(/[^a-zA-Z0-9.-]/g, '_'))
+};
+
+// Mock TrailMixAuth for auth manager tests  
+global.TrailMixAuth = {
+  authManager: null // Will be set by auth-manager.js
+};
+
 // Mock document methods
 Object.defineProperty(document, 'readyState', {
   value: 'complete',
   writable: true
 });
+
+// Fix TextEncoder/TextDecoder for jsdom
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
 
 // Setup DOM testing utilities
 const { JSDOM } = require('jsdom');
@@ -78,7 +104,7 @@ beforeEach(() => {
     pretendToBeVisual: true,
     resources: 'usable'
   });
-  
+
   global.window = dom.window;
   global.document = dom.window.document;
   global.navigator = dom.window.navigator;

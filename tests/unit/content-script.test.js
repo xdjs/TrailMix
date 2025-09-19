@@ -70,7 +70,7 @@ describe('Content Script', () => {
     
     test('should log initialization message', () => {
       require('../../content/bandcamp-scraper.js');
-      expect(console.log).toHaveBeenCalledWith('Bandcamp Downloader content script loaded');
+      expect(console.log).toHaveBeenCalledWith('Trail Mix content script loaded');
     });
   });
   

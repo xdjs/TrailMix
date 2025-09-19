@@ -64,7 +64,7 @@ describe('Project Structure Validation', () => {
       expect(() => JSON.parse(packageContent)).not.toThrow();
       
       const pkg = JSON.parse(packageContent);
-      expect(pkg.name).toBe('bandcamp-downloader');
+      expect(pkg.name).toBe('trail-mix');
       expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/);
       expect(pkg.scripts).toBeDefined();
       expect(pkg.devDependencies).toBeDefined();
@@ -78,7 +78,7 @@ describe('Project Structure Validation', () => {
       
       const manifest = JSON.parse(manifestContent);
       expect(manifest.manifest_version).toBe(3);
-      expect(manifest.name).toBe('Bandcamp Downloader');
+      expect(manifest.name).toBe('Trail Mix');
     });
     
     test('should have jest configuration', () => {
@@ -128,7 +128,7 @@ describe('Project Structure Validation', () => {
       const readmePath = path.join(projectRoot, 'README.md');
       const readmeContent = fs.readFileSync(readmePath, 'utf8');
       
-      expect(readmeContent).toContain('Bandcamp Downloader');
+      expect(readmeContent).toContain('Trail Mix');
       expect(readmeContent).toContain('Installation');
       expect(readmeContent).toContain('Usage');
       expect(readmeContent).toContain('Development');
