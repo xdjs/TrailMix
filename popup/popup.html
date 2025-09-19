@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bandcamp Downloader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1 class="title">Bandcamp Downloader</h1>
+      <div class="version">v1.0.0</div>
+    </header>
+
+    <!-- Authentication Status -->
+    <section class="auth-section">
+      <div class="auth-status" id="authStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span class="status-text" id="statusText">Checking authentication...</span>
+      </div>
+      <button class="btn btn-primary" id="loginBtn" style="display: none;">Login to Bandcamp</button>
+    </section>
+
+    <!-- Progress Dashboard -->
+    <section class="progress-section" id="progressSection" style="display: none;">
+      <div class="progress-header">
+        <h3>Download Progress</h3>
+        <div class="progress-stats">
+          <span id="progressStats">0 of 0 albums</span>
+        </div>
+      </div>
+      
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+        </div>
+        <div class="progress-text" id="progressText">0%</div>
+      </div>
+      
+      <div class="current-item" id="currentItem">
+        <div class="current-album">Ready to start</div>
+        <div class="current-track"></div>
+      </div>
+    </section>
+
+    <!-- Control Buttons -->
+    <section class="controls-section">
+      <div class="control-buttons">
+        <button class="btn btn-success" id="startBtn" disabled>Start Download</button>
+        <button class="btn btn-warning" id="pauseBtn" style="display: none;">Pause</button>
+        <button class="btn btn-danger" id="stopBtn" style="display: none;">Stop</button>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="settings-section">
+      <details class="settings-details">
+        <summary>Settings</summary>
+        <div class="settings-content">
+          <div class="setting-item">
+            <label for="downloadLocation">Download Location:</label>
+            <input type="text" id="downloadLocation" placeholder="Browser default" readonly>
+            <button class="btn btn-small" id="selectLocationBtn">Choose</button>
+          </div>
+          
+          <div class="setting-item">
+            <label for="downloadDelay">Delay between downloads (seconds):</label>
+            <input type="number" id="downloadDelay" min="1" max="60" value="2">
+          </div>
+          
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="embedMetadata" checked>
+              Embed metadata in files
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="embedArtwork" checked>
+              Embed album artwork
+            </label>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Status Log -->
+    <section class="log-section">
+      <details class="log-details">
+        <summary>Activity Log</summary>
+        <div class="log-content" id="logContent">
+          <div class="log-entry">Extension initialized</div>
+        </div>
+        <button class="btn btn-small" id="clearLogBtn">Clear Log</button>
+      </details>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-text">
+        Personal archival use only. Respect Bandcamp's terms of service.
+      </div>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+

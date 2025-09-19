@@ -1,0 +1,39 @@
+{
+  "name": "bandcamp-downloader",
+  "version": "1.0.0",
+  "description": "Chrome extension for bulk downloading Bandcamp purchases",
+  "scripts": {
+    "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration", 
+    "test:acceptance": "jest tests/acceptance",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "build": "echo 'Build process will be defined later'",
+    "dev": "echo 'Development server will be defined later'"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "jest-environment-jsdom": "^29.0.0",
+    "jsdom": "^22.0.0",
+    "babel-jest": "^29.0.0",
+    "@babel/core": "^7.22.0",
+    "@babel/preset-env": "^7.22.0",
+    "eslint": "^8.0.0",
+    "@types/chrome": "^0.0.246"
+  },
+  "keywords": [
+    "chrome-extension",
+    "bandcamp",
+    "music-downloader",
+    "mp3",
+    "metadata"
+  ],
+  "author": "Bandcamp Downloader Team",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
