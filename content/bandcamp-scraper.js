@@ -1,19 +1,62 @@
 /**
- * Bandcamp Downloader - Content Script
+ * Trail Mix - Content Script
  * Handles DOM interaction with Bandcamp pages
  */
 
-console.log('Bandcamp Downloader content script loaded');
+console.log('Trail Mix content script loaded');
 
-// Wait for DOM to be ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialize);
-} else {
-  initialize();
+// DOM Utilities for content script
+const DOMUtils = {
+  waitForElement: async (selector, timeout = 5000) => {
+    return new Promise((resolve, reject) => {
+      const element = document.querySelector(selector);
+      if (element) {
+        resolve(element);
+        return;
+      }
+      
+      const observer = new MutationObserver(() => {
+        const element = document.querySelector(selector);
+        if (element) {
+          observer.disconnect();
+          resolve(element);
+        }
+      });
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      setTimeout(() => {
+        observer.disconnect();
+        reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+      }, timeout);
+    });
+  },
+  
+  // Safe text extraction
+  getTextContent: (element) => {
+    return element ? element.textContent.trim() : '';
+  },
+  
+  // Safe attribute extraction
+  getAttribute: (element, attribute) => {
+    return element ? element.getAttribute(attribute) : null;
+  }
+};
+
+// Export for testing
+if (typeof global !== 'undefined') {
+  global.DOMUtils = DOMUtils;
+}
+if (typeof window !== 'undefined') {
+  window.DOMUtils = DOMUtils;
 }
 
+// Initialize function (exported for testing)
 function initialize() {
-  console.log('Bandcamp Downloader: DOM ready, initializing...');
+  console.log('Trail Mix: DOM ready, initializing...');
   
   // Check if we're on a Bandcamp page
   if (!isBandcampPage()) {
@@ -23,6 +66,18 @@ function initialize() {
   
   console.log('Bandcamp page detected, content script active');
   setupMessageListener();
+}
+
+// Wait for DOM to be ready (skip in test environment)
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize);
+  } else {
+    initialize();
+  }
+} else if (typeof window !== 'undefined' && window.location && window.location.hostname.includes('bandcamp.com')) {
+  // In test environment with mocked window
+  initialize();
 }
 
 // Check if current page is a Bandcamp page
@@ -47,6 +102,10 @@ function setupMessageListener() {
       case 'CHECK_AUTH_STATUS':
         handleCheckAuthStatus(sendResponse);
         return true;
+
+      case 'makeAuthenticatedRequest':
+        handleAuthenticatedRequest(message.url, sendResponse);
+        return true;
         
       default:
         console.warn('Unknown message type:', message.type);
@@ -70,6 +129,46 @@ async function handleCheckAuthStatus(sendResponse) {
   } catch (error) {
     console.error('Error checking auth status:', error);
     sendResponse({ error: error.message });
+  }
+}
+
+// Handle authenticated API requests
+async function handleAuthenticatedRequest(url, sendResponse) {
+  try {
+    console.log('Making authenticated request to:', url);
+    
+    // Make fetch request with credentials (cookies will be included)
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include', // Include cookies for authentication
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    // Try to parse as JSON
+    let data;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
+
+    console.log('Authenticated request successful');
+    sendResponse(data);
+
+  } catch (error) {
+    console.error('Authenticated request failed:', error);
+    sendResponse({ 
+      error: error.message,
+      status: 'unauthorized'
+    });
   }
 }
 
@@ -129,47 +228,5 @@ async function handleScrapeAlbum(albumUrl, sendResponse) {
   }
 }
 
-// Utility functions for DOM manipulation
-const DOMUtils = {
-  // Wait for element to appear in DOM
-  waitForElement: (selector, timeout = 5000) => {
-    return new Promise((resolve, reject) => {
-      const element = document.querySelector(selector);
-      if (element) {
-        resolve(element);
-        return;
-      }
-      
-      const observer = new MutationObserver((mutations, obs) => {
-        const element = document.querySelector(selector);
-        if (element) {
-          obs.disconnect();
-          resolve(element);
-        }
-      });
-      
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-      
-      setTimeout(() => {
-        observer.disconnect();
-        reject(new Error(`Element ${selector} not found within ${timeout}ms`));
-      }, timeout);
-    });
-  },
-  
-  // Safe text extraction
-  getTextContent: (element) => {
-    return element ? element.textContent.trim() : '';
-  },
-  
-  // Safe attribute extraction
-  getAttribute: (element, attribute) => {
-    return element ? element.getAttribute(attribute) : null;
-  }
-};
-
-console.log('Bandcamp Downloader content script initialized');
+console.log('Trail Mix content script fully initialized');
 

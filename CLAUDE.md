@@ -80,5 +80,5 @@ Claude will continue assisting with:
 
 - **AI Assistant**: Claude by Anthropic
 - **Development Model**: Human-AI Collaborative Programming
-- **Project**: Bandcamp Downloader Chrome Extension
+- **Project**: Trail Mix Chrome Extension
 - **Documentation**: This file serves as a pointer to the comprehensive AI development documentation in AGENTS.md

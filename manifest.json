@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Bandcamp Downloader",
+  "name": "Trail Mix",
   "version": "1.0.0",
   "description": "Bulk download your paid Bandcamp purchases with metadata and artwork",
   "permissions": [
@@ -18,7 +18,7 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "Bandcamp Downloader",
+    "default_title": "Trail Mix",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "32": "assets/icons/icon32.png",
