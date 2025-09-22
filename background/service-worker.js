@@ -109,8 +109,8 @@ async function handleCheckAuthentication(sendResponse) {
     });
     
     const allBandcampCookies = [...allCookies, ...subdomainCookies];
-    
-    
+
+
     // Detailed session cookie analysis
     const sessionCookies = allBandcampCookies.filter(c => c.name.toLowerCase().includes('session'));
     
@@ -182,8 +182,8 @@ async function handleCheckAuthentication(sendResponse) {
     );
     
     const isAuthenticated = authCookies.length > 0;
-    
-    
+
+
     sendResponse({
       isAuthenticated: isAuthenticated,
       userInfo: isAuthenticated ? { 
