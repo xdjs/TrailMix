@@ -141,17 +141,57 @@ async function handleCheckAuthStatus(sendResponse) {
     const allLinks = document.querySelectorAll('a[href*="bandcamp.com/"]');
     console.log('All Bandcamp links found:', Array.from(allLinks).map(l => l.href));
 
-    // Method 1: Try finding the user's collection/profile link in header
-    const headerLinks = document.querySelectorAll('.menubar a[href*="bandcamp.com/"], .user-nav a[href*="bandcamp.com/"]');
-    console.log('Header links:', Array.from(headerLinks).map(l => ({ href: l.href, text: l.textContent })));
+    // Method 1: Look for the Collection button/link in the header
+    // Try multiple selectors for the Collection button
+    const collectionSelectors = [
+      'a[href*="?from=menubar"]',  // Link with from=menubar parameter
+      'a.menubar-item:has-text("Collection")',  // Link containing "Collection" text
+      'a:contains("Collection")',
+      '.menubar a[href*="bandcamp.com/"][href*="?"]',  // Menubar links with parameters
+      'a[href$="?from=menubar"]'  // Links ending with from=menubar
+    ];
 
-    for (const link of headerLinks) {
-      // Look for links like bandcamp.com/carlxt
-      const match = link.href.match(/bandcamp\.com\/([^\/\?]+)(?:\/|$)/);
-      if (match && match[1] && !['login', 'signup', 'help', 'discover', 'feed'].includes(match[1])) {
+    let collectionButton = null;
+    for (const selector of collectionSelectors) {
+      try {
+        collectionButton = document.querySelector(selector);
+        if (!collectionButton) {
+          // Try finding by text content
+          const allLinks = document.querySelectorAll('a');
+          collectionButton = Array.from(allLinks).find(link =>
+            link.textContent.trim() === 'Collection' && link.href.includes('bandcamp.com')
+          );
+        }
+        if (collectionButton) break;
+      } catch (e) {
+        // Some selectors might not be valid, continue trying
+      }
+    }
+
+    console.log('Collection button found:', collectionButton?.href);
+
+    if (collectionButton && collectionButton.href) {
+      // Extract username from URL like: https://bandcamp.com/carlxt?from=menubar
+      const match = collectionButton.href.match(/bandcamp\.com\/([^\/\?]+)/);
+      if (match && match[1]) {
         username = match[1];
-        console.log('Found username from header link:', username);
-        break;
+        console.log('Found username from Collection button:', username);
+      }
+    }
+
+    // Method 1b: Try other header links if Collection button not found
+    if (!username) {
+      const headerLinks = document.querySelectorAll('.menubar a[href*="bandcamp.com/"], .user-nav a[href*="bandcamp.com/"]');
+      console.log('Header links:', Array.from(headerLinks).map(l => ({ href: l.href, text: l.textContent.trim() })));
+
+      for (const link of headerLinks) {
+        // Look for links like bandcamp.com/carlxt
+        const match = link.href.match(/bandcamp\.com\/([^\/\?]+)(?:[\?\/]|$)/);
+        if (match && match[1] && !['login', 'signup', 'help', 'discover', 'feed'].includes(match[1])) {
+          username = match[1];
+          console.log('Found username from header link:', username);
+          break;
+        }
       }
     }
 
