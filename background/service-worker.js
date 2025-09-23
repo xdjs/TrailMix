@@ -148,27 +148,45 @@ async function handleDiscoverPurchases(sendResponse) {
 async function discoverPurchases() {
   try {
     // Find or create a Bandcamp tab
-    const tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
+    let tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
     let tab;
 
     if (tabs.length > 0) {
       tab = tabs[0];
+      // Make sure the tab is active
+      await chrome.tabs.update(tab.id, { active: true });
     } else {
       // Create a new tab with Bandcamp
-      tab = await chrome.tabs.create({ url: 'https://bandcamp.com', active: false });
+      tab = await chrome.tabs.create({ url: 'https://bandcamp.com', active: true });
       // Wait for it to load
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
-    // Navigate to purchases page
-    const navResponse = await chrome.tabs.sendMessage(tab.id, { type: 'NAVIGATE_TO_PURCHASES' });
-
-    if (navResponse.navigating) {
-      // Wait for navigation
       await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
-    // Scrape purchases
+    // Check if we're already on the purchases page
+    if (!tab.url.includes('/purchases')) {
+      // Try to get the username from the current page first
+      try {
+        const authResponse = await chrome.tabs.sendMessage(tab.id, { type: 'CHECK_AUTH_STATUS' });
+
+        // Navigate directly to purchases page
+        // Most users' purchases are at bandcamp.com/[username]/purchases
+        await chrome.tabs.update(tab.id, { url: 'https://bandcamp.com/purchases' });
+
+        // Wait for navigation to complete
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Update tab info after navigation
+        tab = await chrome.tabs.get(tab.id);
+      } catch (err) {
+        // If we can't send a message, the content script might not be loaded
+        // Navigate to the purchases page directly
+        await chrome.tabs.update(tab.id, { url: 'https://bandcamp.com/purchases' });
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        tab = await chrome.tabs.get(tab.id);
+      }
+    }
+
+    // Now scrape purchases from the page
     const scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
 
     return scrapeResponse;
