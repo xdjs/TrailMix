@@ -125,44 +125,80 @@ function setupMessageListener() {
 // Check if user is authenticated
 async function handleCheckAuthStatus(sendResponse) {
   try {
+    console.log('Checking auth status...');
+
     // Look for authentication indicators in the DOM
     const loginLink = document.querySelector('a[href*="/login"]');
     const userMenu = document.querySelector('.menubar-item.user-menu');
     const isLoggedIn = !loginLink && !!userMenu;
 
+    console.log('Login status:', { isLoggedIn, hasLoginLink: !!loginLink, hasUserMenu: !!userMenu });
+
     // Try to get username from various places on the page
     let username = null;
 
-    // Try user menu dropdown
-    const usernameLink = document.querySelector('.user-nav a[href*="/bandcamp.com/"], .menubar-item.user-menu a[href*="/bandcamp.com/"]');
-    if (usernameLink) {
-      const match = usernameLink.href.match(/bandcamp\.com\/([^\/\?]+)/);
-      if (match) {
+    // Log all links that might contain username
+    const allLinks = document.querySelectorAll('a[href*="bandcamp.com/"]');
+    console.log('All Bandcamp links found:', Array.from(allLinks).map(l => l.href));
+
+    // Method 1: Try finding the user's collection/profile link in header
+    const headerLinks = document.querySelectorAll('.menubar a[href*="bandcamp.com/"], .user-nav a[href*="bandcamp.com/"]');
+    console.log('Header links:', Array.from(headerLinks).map(l => ({ href: l.href, text: l.textContent })));
+
+    for (const link of headerLinks) {
+      // Look for links like bandcamp.com/carlxt
+      const match = link.href.match(/bandcamp\.com\/([^\/\?]+)(?:\/|$)/);
+      if (match && match[1] && !['login', 'signup', 'help', 'discover', 'feed'].includes(match[1])) {
         username = match[1];
+        console.log('Found username from header link:', username);
+        break;
       }
     }
 
-    // Try the "view collection" link
+    // Method 2: Check the user image/avatar link
     if (!username) {
-      const collectionLink = document.querySelector('a[href*="bandcamp.com/"][href$="/collection"], a[href*="bandcamp.com/"][href*="/purchases"]');
-      if (collectionLink) {
-        const match = collectionLink.href.match(/bandcamp\.com\/([^\/\?]+)/);
-        if (match) {
+      const userImage = document.querySelector('.user-image a, .menubar .user-pic a, a.user-image');
+      console.log('User image link:', userImage?.href);
+      if (userImage && userImage.href) {
+        const match = userImage.href.match(/bandcamp\.com\/([^\/\?]+)/);
+        if (match && match[1]) {
           username = match[1];
+          console.log('Found username from user image:', username);
         }
       }
     }
 
-    // Try the logged-in user indicator
+    // Method 3: Try the dropdown menu when clicked
     if (!username) {
-      const fanName = document.querySelector('.name.logged-in-name a, .fan-name a');
-      if (fanName && fanName.href) {
-        const match = fanName.href.match(/bandcamp\.com\/([^\/\?]+)/);
-        if (match) {
-          username = match[1];
+      const userMenuItems = document.querySelectorAll('.user-menu-dropdown a, .menubar-dropdown a');
+      console.log('Dropdown menu items:', Array.from(userMenuItems).map(l => l.href));
+      for (const item of userMenuItems) {
+        if (item.href && item.href.includes('bandcamp.com/')) {
+          const match = item.href.match(/bandcamp\.com\/([^\/\?]+)/);
+          if (match && match[1] && !['login', 'signup', 'help'].includes(match[1])) {
+            username = match[1];
+            console.log('Found username from dropdown:', username);
+            break;
+          }
         }
       }
     }
+
+    // Method 4: Look for "view collection" type links
+    if (!username) {
+      const collectionLinks = document.querySelectorAll('a[href*="collection"], a[href*="purchases"]');
+      console.log('Collection links:', Array.from(collectionLinks).map(l => l.href));
+      for (const link of collectionLinks) {
+        const match = link.href.match(/bandcamp\.com\/([^\/\?]+)/);
+        if (match && match[1]) {
+          username = match[1];
+          console.log('Found username from collection link:', username);
+          break;
+        }
+      }
+    }
+
+    console.log('Final auth status:', { isLoggedIn, username, currentUrl: window.location.href });
 
     sendResponse({
       authenticated: isLoggedIn,

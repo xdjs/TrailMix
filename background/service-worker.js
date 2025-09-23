@@ -170,12 +170,16 @@ async function discoverPurchases() {
 
     if (!isOnCollection) {
       try {
+        console.log('Not on collection page, need to navigate. Current URL:', tab.url);
+
         // Get the username from the current page
         const authResponse = await chrome.tabs.sendMessage(tab.id, { type: 'CHECK_AUTH_STATUS' });
+        console.log('Auth response:', authResponse);
 
         if (authResponse.username) {
           // Navigate to the user's collection page
           const collectionUrl = `https://bandcamp.com/${authResponse.username}`;
+          console.log('Navigating to collection URL:', collectionUrl);
           await chrome.tabs.update(tab.id, { url: collectionUrl });
 
           // Wait for navigation to complete
@@ -183,7 +187,9 @@ async function discoverPurchases() {
 
           // Update tab info after navigation
           tab = await chrome.tabs.get(tab.id);
+          console.log('After navigation, new URL:', tab.url);
         } else {
+          console.log('No username found, trying to get it from home page...');
           // If we can't get username, try to find it from cookies or navigation
           // First, try navigating to the main page to get logged-in user info
           await chrome.tabs.update(tab.id, { url: 'https://bandcamp.com' });
@@ -191,12 +197,17 @@ async function discoverPurchases() {
 
           // Try again to get username
           const retryAuth = await chrome.tabs.sendMessage(tab.id, { type: 'CHECK_AUTH_STATUS' });
+          console.log('Retry auth response:', retryAuth);
+
           if (retryAuth.username) {
             const collectionUrl = `https://bandcamp.com/${retryAuth.username}`;
+            console.log('Found username on retry, navigating to:', collectionUrl);
             await chrome.tabs.update(tab.id, { url: collectionUrl });
             await new Promise(resolve => setTimeout(resolve, 3000));
             tab = await chrome.tabs.get(tab.id);
+            console.log('After retry navigation, new URL:', tab.url);
           } else {
+            console.error('Could not determine username after retry');
             return { success: false, error: 'Could not determine username. Please visit your Bandcamp collection page manually.' };
           }
         }
