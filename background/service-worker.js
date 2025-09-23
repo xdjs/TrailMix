@@ -118,8 +118,13 @@ async function handleStartDownload(data, sendResponse) {
     downloadState.completed = 0;
     downloadState.failed = 0;
 
+    console.log('Download state initialized:', downloadState);
+    console.log('About to call processNextDownload()...');
+
     // Start downloading
-    processNextDownload();
+    await processNextDownload();
+
+    console.log('processNextDownload() completed');
     sendResponse({ status: 'started', totalPurchases: downloadState.purchases.length });
   } catch (error) {
     sendResponse({ status: 'failed', error: error.message });
