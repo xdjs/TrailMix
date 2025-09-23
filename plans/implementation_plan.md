@@ -1,21 +1,27 @@
 # Trail Mix - Implementation Plan
 
-## 🎉 Project Status: Phase 2 Task 2.1 Complete!
+## 🎉 Project Status: Moving to Phase 3 - Core Functionality Focus!
 
-**✅ PHASE 1 COMPLETED** - Chrome Extension Foundation  
-**🔄 PHASE 2 IN PROGRESS** - Authentication & Session Management  
-**📊 Progress**: Task 2.1 complete (1/6 Phase 2 tasks)  
-**🧪 Testing**: All unit tests passing with comprehensive error handling  
-**🚀 Status**: Authentication detection working correctly, ready for Task 2.2
+**✅ PHASE 1 COMPLETED** - Chrome Extension Foundation
+**✅ PHASE 2 SIMPLIFIED** - Basic Authentication (Login button opens Bandcamp login)
+**🔄 PHASE 3 IN PROGRESS** - Purchase Discovery & Core Download
+**📊 Progress**: Focusing on core functionality before full UI buildout
+**🧪 Testing**: All unit tests passing with comprehensive error handling
+**🚀 Status**: Authentication working with tab-based login, ready for purchase discovery
 
 ### Recent Achievements:
-- ✅ **Task 2.1 Complete**: Session Detection with enhanced cookie validation
-- ✅ Advanced authentication detection that properly handles logged-out states
+- ✅ **Phase 1 Complete**: Full Chrome extension foundation
+- ✅ **Phase 2 Simplified**: Authentication detection works, login opens in new tab
+- ✅ Session detection properly identifies logged-in/logged-out states
 - ✅ Robust error handling for cookie API failures and network errors
 - ✅ Service worker message handling for authentication status checks
-- ✅ Comprehensive unit test coverage for all authentication scenarios
-- ✅ URL-encoded tracking cookie filtering to prevent false positives
-- ✅ Session state caching and management system
+
+### Strategic Decision:
+**Focusing on Core Functionality First** - Getting the essential flow working:
+1. Detect login state ✅
+2. Find user's purchases (Phase 3 - In Progress)
+3. Download purchases with metadata (Phase 3/4 - Upcoming)
+4. Then circle back to polish UI and advanced features
 
 ### Phase 1 Foundation:
 - ✅ Complete Chrome extension structure implemented
@@ -26,7 +32,7 @@
 - ✅ Full testing infrastructure with Jest and Chrome API mocks
 - ✅ Git repository initialized with all code committed
 
-**🔄 Next**: Task 2.2 - Build Login Flow UI
+**🔄 Next**: Phase 3 Task 3.1 - Purchase Page Navigation & Discovery
 
 ---
 
@@ -300,13 +306,16 @@ tests/
 - [x] **AC1.5**: All required permissions are granted and functional
 - [x] **AC1.6**: Extension icon displays correctly in browser toolbar
 
-### Phase 2: Authentication & Session Management (Week 2)
+### Phase 2: Authentication & Session Management ✅ SIMPLIFIED
 
-**Duration**: 5 days  
-**Dependencies**: Phase 1 complete  
-**Deliverables**: Working authentication system with session management
+**Status**: Core authentication working - deferring advanced features for later version
+**Implementation**: Login button opens Bandcamp login page in new tab
+**Completed**:
+- ✅ Session detection using cookies
+- ✅ Login/logout state tracking
+- ✅ Basic login flow (opens Bandcamp login page)
 
-#### Task 2.1: Implement Session Detection (Day 1) ✅ COMPLETED
+#### Task 2.1: Implement Session Detection ✅ COMPLETED
 - [x] Create `lib/auth-manager.js` core functionality
 - [x] Implement cookie-based session validation:
   - [x] Read Bandcamp session cookies using Chrome cookies API
@@ -329,76 +338,23 @@ tests/
 - [x] **AC2.3**: Correctly identifies logged-out state (excludes URL-encoded tracking cookies)
 - [x] **AC2.4**: Handles authentication errors gracefully (cookie API failures, network errors, validation errors)
 
-#### Task 2.2: Build Login Flow UI (Day 2)
-- [ ] Design login prompt interface in popup:
-  - [ ] Username/email input field
-  - [ ] Password input field
-  - [ ] Login button
-  - [ ] Status messages area
-- [ ] Add login form styling
-- [ ] Implement form validation (required fields, format checking)
-- [ ] Create login state management in popup
-- [ ] Add loading indicators during login process
+#### Tasks 2.2-2.6: DEFERRED TO LATER VERSION
+**Rationale**: Basic authentication is working (login button opens Bandcamp login page).
+Advanced features like in-extension login forms, session monitoring, and state management
+will be implemented after core download functionality is proven.
 
-#### Task 2.3: Implement Login Process (Day 2-3)
-- [ ] Create login automation in content script:
-  - [ ] Navigate to Bandcamp login page
-  - [ ] Fill login form programmatically
-  - [ ] Submit login credentials
-  - [ ] Detect successful/failed login
-- [ ] Handle login response processing
-- [ ] Implement login error handling:
-  - [ ] Invalid credentials
-  - [ ] Network errors
-  - [ ] Captcha challenges
-- [ ] Add login success confirmation
+**What's Working Now**:
+- ✅ Cookie-based session detection
+- ✅ Login button that opens Bandcamp login
+- ✅ Automatic detection of login state changes
+- ✅ No credential storage (security requirement met)
 
-#### Task 2.4: Session Monitoring System (Day 3-4)
-- [ ] Implement session expiry detection:
-  - [ ] Monitor authentication status during operations
-  - [ ] Detect when session becomes invalid
-  - [ ] Trigger re-authentication prompts
-- [ ] Create session refresh mechanisms
-- [ ] Add session timeout handling
-- [ ] Implement graceful session expiry recovery
+### Phase 3: Purchase Discovery & Core Download 🔄 IN PROGRESS
 
-#### Task 2.5: Authentication State Management (Day 4)
-- [ ] Create authentication state store:
-  - [ ] Track current login status
-  - [ ] Store session validation results
-  - [ ] Manage authentication events
-- [ ] Implement auth state synchronization between components
-- [ ] Add authentication event broadcasting
-- [ ] Create auth state persistence (session-based only)
-
-#### Task 2.6: Authentication Testing (Day 5)
-- [ ] Test login flow with valid credentials
-- [ ] Test login flow with invalid credentials
-- [ ] Test session expiry scenarios
-- [ ] Test authentication across browser restarts
-- [ ] Validate no credential storage (per PRD requirement)
-- [ ] Create authentication test scenarios
-
-**Unit Tests:**
-- [ ] Test session cookie parsing and validation
-- [ ] Test authentication state management
-- [ ] Test login form automation functions
-- [ ] Test session expiry detection logic
-- [ ] Test authentication event broadcasting
-
-**Acceptance Test:**
-- [ ] **AC2.6.1**: Valid credentials successfully authenticate user
-- [ ] **AC2.6.2**: Invalid credentials show appropriate error messages
-- [ ] **AC2.6.3**: Session expiry is detected and handled gracefully
-- [ ] **AC2.6.4**: No credentials are stored locally after logout
-- [ ] **AC2.6.5**: Authentication state persists during browser session
-- [ ] **AC2.6.6**: Re-authentication prompts appear when session expires
-
-### Phase 3: Purchase Discovery & Scraping (Week 3)
-
-**Duration**: 5 days  
-**Dependencies**: Phase 2 complete (authentication working)  
-**Deliverables**: Complete purchase discovery and metadata extraction system
+**Status**: Implementing core functionality - discover purchases and download
+**Focus**: Get essential flow working before full UI/features
+**Dependencies**: Basic authentication (✅ complete)
+**Deliverables**: Discover purchases, extract download links, basic download working
 
 #### Task 3.1: Purchases Page Navigation (Day 1)
 - [ ] Implement purchases page navigation:
@@ -1035,20 +991,19 @@ chrome.cookies.getAll({
 
 ## Development Timeline & Task Summary
 
-| Phase | Week | Duration | Tasks | Key Deliverables | Status |
-|-------|------|----------|-------|------------------|--------|
-| 1 | 1 | 5 days | 7 tasks | Project setup, extension foundation | ✅ COMPLETED |
-| 2 | 2 | 5 days | 6 tasks | Authentication and session management | 🔄 IN PROGRESS (Task 2.1 ✅) |
-| 3 | 3 | 5 days | 6 tasks | Purchase discovery and scraping | ⏳ PENDING |
-| 4 | 4 | 5 days | 6 tasks | Download manager implementation | ⏳ PENDING |
-| 5 | 5 | 5 days | 6 tasks | Metadata and file organization | ⏳ PENDING |
-| 6 | 6 | 5 days | 6 tasks | User interface development | ⏳ PENDING |
-| 7 | 7 | 5 days | 5 tasks | Testing and polish | ⏳ PENDING |
+| Phase | Status | Key Deliverables | Notes |
+|-------|--------|------------------|-------|
+| 1 | ✅ COMPLETED | Extension foundation, manifest, service worker | All 7 tasks complete |
+| 2 | ✅ SIMPLIFIED | Basic authentication with tab-based login | Core auth working, advanced features deferred |
+| 3 | 🔄 IN PROGRESS | Purchase discovery & core download | Focus on essential functionality |
+| 4 | ⏳ MODIFIED | Basic download implementation | Will implement core features only |
+| 5 | ⏳ DEFERRED | Metadata and file organization | After core functionality proven |
+| 6 | ⏳ DEFERRED | Full UI development | After core functionality proven |
+| 7 | ⏳ ONGOING | Testing and polish | Continuous as we build |
 
-**Total Estimated Duration: 7 weeks (35 working days)**  
-**Total Tasks: 42 detailed tasks with 300+ sub-tasks**  
-**Testing Coverage: Unit tests and acceptance tests for every task**  
-**Progress: Phase 1 Complete + Phase 2 Task 2.1 Complete (8/42 tasks = 19% complete)**
+**Revised Strategy**: Build core functionality first (login → discover → download), then enhance
+**Current Focus**: Phase 3 - Get purchase discovery and basic download working
+**Progress**: Phase 1 complete, Phase 2 simplified & working, Phase 3 in progress
 
 ### Task Dependencies
 - **Phase 1**: No dependencies (foundation)

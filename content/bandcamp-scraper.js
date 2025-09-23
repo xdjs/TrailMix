@@ -89,16 +89,24 @@ function isBandcampPage() {
 function setupMessageListener() {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Content script received message:', message.type);
-    
+
     switch (message.type) {
+      case 'NAVIGATE_TO_PURCHASES':
+        handleNavigateToPurchases(sendResponse);
+        return true;
+
       case 'SCRAPE_PURCHASES':
         handleScrapePurchases(sendResponse);
         return true; // Keep channel open for async response
-        
+
       case 'SCRAPE_ALBUM':
         handleScrapeAlbum(message.albumUrl, sendResponse);
         return true;
-        
+
+      case 'GET_DOWNLOAD_LINK':
+        handleGetDownloadLink(message.albumUrl, sendResponse);
+        return true;
+
       case 'CHECK_AUTH_STATUS':
         handleCheckAuthStatus(sendResponse);
         return true;
@@ -106,7 +114,7 @@ function setupMessageListener() {
       case 'makeAuthenticatedRequest':
         handleAuthenticatedRequest(message.url, sendResponse);
         return true;
-        
+
       default:
         console.warn('Unknown message type:', message.type);
         sendResponse({ error: 'Unknown message type' });
@@ -172,56 +180,276 @@ async function handleAuthenticatedRequest(url, sendResponse) {
   }
 }
 
-// Scrape purchases page (placeholder implementation)
+// Navigate to purchases page
+async function handleNavigateToPurchases(sendResponse) {
+  try {
+    // Check if we're already on the purchases page
+    if (window.location.pathname.includes('/purchases')) {
+      sendResponse({ success: true, message: 'Already on purchases page' });
+      return;
+    }
+
+    // Find the user menu and navigate to purchases
+    const userMenu = document.querySelector('.menubar-item.user-menu, .user-nav');
+    if (!userMenu) {
+      // Try to find the username link directly
+      const usernameLink = document.querySelector('a[href*="/purchases"]');
+      if (usernameLink) {
+        window.location.href = usernameLink.href;
+        sendResponse({ success: true, message: 'Navigating to purchases page' });
+      } else {
+        // Get current username from page and construct purchases URL
+        const fanNameElement = document.querySelector('.name a, .fan-name');
+        if (fanNameElement) {
+          const username = fanNameElement.textContent.trim();
+          window.location.href = `https://bandcamp.com/${username}/purchases`;
+          sendResponse({ success: true, message: 'Navigating to purchases page' });
+        } else {
+          sendResponse({ error: 'Could not find purchases page link' });
+        }
+      }
+    } else {
+      // Click on user menu to reveal dropdown
+      userMenu.click();
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const purchasesLink = document.querySelector('a[href*="/purchases"]');
+      if (purchasesLink) {
+        window.location.href = purchasesLink.href;
+        sendResponse({ success: true, message: 'Navigating to purchases page' });
+      } else {
+        sendResponse({ error: 'Could not find purchases link in menu' });
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to purchases:', error);
+    sendResponse({ error: error.message });
+  }
+}
+
+// Scrape purchases page
 async function handleScrapePurchases(sendResponse) {
   try {
     console.log('Scraping purchases page...');
-    
-    // TODO: Implement actual purchases scraping logic
-    // This is a placeholder that will be implemented in Phase 3
-    
-    const mockPurchases = [
-      {
-        title: 'Sample Album',
-        artist: 'Sample Artist',
-        url: 'https://sampleartist.bandcamp.com/album/sample-album',
-        purchaseDate: '2023-01-01',
-        artworkUrl: 'https://example.com/artwork.jpg'
-      }
+
+    // Check if we're on the purchases page
+    if (!window.location.pathname.includes('/purchases')) {
+      sendResponse({ error: 'Not on purchases page' });
+      return;
+    }
+
+    // Wait for purchase items to load
+    await DOMUtils.waitForElement('.collection-item-container, .collection-grid, .purchases-grid', 10000);
+
+    // Find all purchase items - try multiple selectors
+    const purchaseSelectors = [
+      '.collection-item-container',
+      '.collection-item',
+      '.purchase-item',
+      '.collection-grid li',
+      '.purchases-grid li'
     ];
-    
-    sendResponse({ 
-      success: true, 
-      purchases: mockPurchases 
+
+    let purchaseElements = [];
+    for (const selector of purchaseSelectors) {
+      purchaseElements = document.querySelectorAll(selector);
+      if (purchaseElements.length > 0) {
+        console.log(`Found ${purchaseElements.length} purchases using selector: ${selector}`);
+        break;
+      }
+    }
+
+    if (purchaseElements.length === 0) {
+      sendResponse({
+        success: true,
+        purchases: [],
+        message: 'No purchases found on page'
+      });
+      return;
+    }
+
+    const purchases = [];
+
+    for (const element of purchaseElements) {
+      try {
+        // Extract album/track title
+        const titleElement = element.querySelector('.collection-item-title, .item-title, a.item-link');
+        const title = DOMUtils.getTextContent(titleElement);
+
+        // Extract artist name
+        const artistElement = element.querySelector('.collection-item-artist, .item-artist, .by-artist a');
+        const artist = DOMUtils.getTextContent(artistElement).replace(/^by\s+/, '');
+
+        // Extract URL
+        const linkElement = element.querySelector('a.item-link, a.collection-item-link, a[href*="/album/"], a[href*="/track/"]');
+        const url = linkElement ? linkElement.href : '';
+
+        // Extract artwork URL
+        const artworkElement = element.querySelector('img.collection-item-art, img.item-art, img[src*=".jpg"], img[src*=".png"]');
+        const artworkUrl = artworkElement ? artworkElement.src : '';
+
+        // Extract purchase date if available
+        const dateElement = element.querySelector('.collection-item-date, .purchase-date');
+        const purchaseDate = DOMUtils.getTextContent(dateElement);
+
+        // Extract item type (album or track)
+        const itemType = url.includes('/track/') ? 'track' : 'album';
+
+        if (title && url) {
+          purchases.push({
+            title,
+            artist: artist || 'Unknown Artist',
+            url,
+            artworkUrl,
+            purchaseDate: purchaseDate || '',
+            itemType
+          });
+        }
+      } catch (err) {
+        console.error('Error parsing purchase item:', err);
+      }
+    }
+
+    console.log(`Successfully scraped ${purchases.length} purchases`);
+
+    sendResponse({
+      success: true,
+      purchases,
+      totalCount: purchases.length
     });
+
   } catch (error) {
     console.error('Error scraping purchases:', error);
     sendResponse({ error: error.message });
   }
 }
 
-// Scrape individual album page (placeholder implementation)
+// Get download link for an album
+async function handleGetDownloadLink(albumUrl, sendResponse) {
+  try {
+    console.log('Getting download link for:', albumUrl);
+
+    // Navigate to album page if not already there
+    if (window.location.href !== albumUrl) {
+      window.location.href = albumUrl;
+      sendResponse({ navigating: true, message: 'Navigating to album page' });
+      return;
+    }
+
+    // Look for download link - purchased items have a "download" link
+    const downloadSelectors = [
+      'a[href*="/download/album"]',
+      'a[href*="/download/track"]',
+      'a.download-link',
+      '.download-col a',
+      'a:contains("download")',
+      'span.buyItem a[href*="download"]'
+    ];
+
+    let downloadLink = null;
+    for (const selector of downloadSelectors) {
+      const element = document.querySelector(selector);
+      if (element && element.href) {
+        downloadLink = element.href;
+        break;
+      }
+    }
+
+    // If no direct download link, check if there's a "you own this" indicator
+    const ownedIndicators = [
+      '.you-own-this',
+      'span:contains("you own this")',
+      '.ownership',
+      '.download-link-container'
+    ];
+
+    let isOwned = false;
+    for (const selector of ownedIndicators) {
+      const element = document.querySelector(selector);
+      if (element) {
+        isOwned = true;
+        break;
+      }
+    }
+
+    if (downloadLink) {
+      sendResponse({
+        success: true,
+        downloadUrl: downloadLink,
+        isOwned: true
+      });
+    } else if (isOwned) {
+      // Item is owned but download link not immediately visible
+      // May need to click something to reveal it
+      sendResponse({
+        success: false,
+        isOwned: true,
+        message: 'Item owned but download link not found'
+      });
+    } else {
+      sendResponse({
+        success: false,
+        isOwned: false,
+        message: 'Item not owned or download link not found'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error getting download link:', error);
+    sendResponse({ error: error.message });
+  }
+}
+
+// Scrape individual album page for metadata
 async function handleScrapeAlbum(albumUrl, sendResponse) {
   try {
     console.log('Scraping album:', albumUrl);
-    
-    // TODO: Implement actual album scraping logic
-    // This is a placeholder that will be implemented in Phase 3
-    
-    const mockAlbumData = {
-      title: 'Sample Album',
-      artist: 'Sample Artist',
-      tracks: [
-        { number: 1, title: 'Track One', duration: '3:45' },
-        { number: 2, title: 'Track Two', duration: '4:12' }
-      ],
-      downloadUrl: 'https://example.com/download'
-    };
-    
-    sendResponse({ 
-      success: true, 
-      albumData: mockAlbumData 
+
+    // Navigate to album page if not already there
+    if (window.location.href !== albumUrl) {
+      window.location.href = albumUrl;
+      sendResponse({ navigating: true, message: 'Navigating to album page' });
+      return;
+    }
+
+    // Extract album metadata
+    const albumTitle = DOMUtils.getTextContent(document.querySelector('#name-section h2, .trackTitle'));
+    const artistName = DOMUtils.getTextContent(document.querySelector('#name-section h3 span a, .albumTitle span'));
+    const releaseDate = DOMUtils.getTextContent(document.querySelector('.tralbum-credits, .released'));
+
+    // Extract track list
+    const tracks = [];
+    const trackElements = document.querySelectorAll('.track_list tr.track_row_view, table.track_list tr');
+
+    trackElements.forEach((trackEl, index) => {
+      const titleEl = trackEl.querySelector('.title-col .track-title, .title a span');
+      const durationEl = trackEl.querySelector('.time, .duration');
+
+      if (titleEl) {
+        tracks.push({
+          number: index + 1,
+          title: DOMUtils.getTextContent(titleEl),
+          duration: DOMUtils.getTextContent(durationEl)
+        });
+      }
     });
+
+    // Get high-res artwork
+    const artworkEl = document.querySelector('#tralbumArt img, .popupImage img, a.popupImage');
+    const artworkUrl = artworkEl ? (artworkEl.src || artworkEl.href) : '';
+
+    sendResponse({
+      success: true,
+      albumData: {
+        title: albumTitle || 'Unknown Album',
+        artist: artistName || 'Unknown Artist',
+        releaseDate,
+        tracks,
+        artworkUrl,
+        url: albumUrl
+      }
+    });
+
   } catch (error) {
     console.error('Error scraping album:', error);
     sendResponse({ error: error.message });

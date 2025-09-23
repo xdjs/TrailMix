@@ -40,20 +40,20 @@ async function initializeExtension() {
 
 // Message handling between components
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  
+
   switch (message.type) {
     case 'GET_EXTENSION_STATUS':
       handleGetStatus(sendResponse);
       return true; // Keep channel open for async response
-      
+
     case 'START_DOWNLOAD':
       handleStartDownload(message.data, sendResponse);
       return true;
-      
+
     case 'PAUSE_DOWNLOAD':
       handlePauseDownload(sendResponse);
       return true;
-      
+
     case 'STOP_DOWNLOAD':
       handleStopDownload(sendResponse);
       return true;
@@ -61,7 +61,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'CHECK_AUTHENTICATION':
       handleCheckAuthentication(sendResponse);
       return true;
-      
+
+    case 'DISCOVER_PURCHASES':
+      handleDiscoverPurchases(sendResponse);
+      return true;
+
+    case 'DOWNLOAD_ALBUM':
+      handleDownloadAlbum(message.data, sendResponse);
+      return true;
+
     default:
       sendResponse({ error: 'Unknown message type' });
   }
@@ -80,20 +88,186 @@ async function handleGetStatus(sendResponse) {
   }
 }
 
-// Download handlers (placeholder implementations)
-function handleStartDownload(data, sendResponse) {
-  // TODO: Implement download logic
-  sendResponse({ status: 'started' });
+// State for download management
+let downloadState = {
+  isActive: false,
+  isPaused: false,
+  purchases: [],
+  currentIndex: 0,
+  completed: 0,
+  failed: 0
+};
+
+// Download handlers
+async function handleStartDownload(data, sendResponse) {
+  try {
+    // First, discover purchases
+    const discoveryResponse = await discoverPurchases();
+    if (!discoveryResponse.success) {
+      sendResponse({ status: 'failed', error: discoveryResponse.error });
+      return;
+    }
+
+    downloadState.purchases = discoveryResponse.purchases;
+    downloadState.isActive = true;
+    downloadState.isPaused = false;
+    downloadState.currentIndex = 0;
+    downloadState.completed = 0;
+    downloadState.failed = 0;
+
+    // Start downloading
+    processNextDownload();
+    sendResponse({ status: 'started', totalPurchases: downloadState.purchases.length });
+  } catch (error) {
+    sendResponse({ status: 'failed', error: error.message });
+  }
 }
 
 function handlePauseDownload(sendResponse) {
-  // TODO: Implement pause logic
+  downloadState.isPaused = true;
   sendResponse({ status: 'paused' });
 }
 
 function handleStopDownload(sendResponse) {
-  // TODO: Implement stop logic
+  downloadState.isActive = false;
+  downloadState.isPaused = false;
   sendResponse({ status: 'stopped' });
+}
+
+// Discover user's purchases
+async function handleDiscoverPurchases(sendResponse) {
+  try {
+    const response = await discoverPurchases();
+    sendResponse(response);
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// Discover purchases by communicating with content script
+async function discoverPurchases() {
+  try {
+    // Find or create a Bandcamp tab
+    const tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
+    let tab;
+
+    if (tabs.length > 0) {
+      tab = tabs[0];
+    } else {
+      // Create a new tab with Bandcamp
+      tab = await chrome.tabs.create({ url: 'https://bandcamp.com', active: false });
+      // Wait for it to load
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // Navigate to purchases page
+    const navResponse = await chrome.tabs.sendMessage(tab.id, { type: 'NAVIGATE_TO_PURCHASES' });
+
+    if (navResponse.navigating) {
+      // Wait for navigation
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+
+    // Scrape purchases
+    const scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
+
+    return scrapeResponse;
+  } catch (error) {
+    console.error('Error discovering purchases:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Process next download in queue
+async function processNextDownload() {
+  if (!downloadState.isActive || downloadState.isPaused) {
+    return;
+  }
+
+  if (downloadState.currentIndex >= downloadState.purchases.length) {
+    // All downloads complete
+    downloadState.isActive = false;
+    return;
+  }
+
+  const purchase = downloadState.purchases[downloadState.currentIndex];
+
+  try {
+    // Download this album
+    await downloadAlbum(purchase);
+    downloadState.completed++;
+  } catch (error) {
+    console.error('Failed to download:', purchase.title, error);
+    downloadState.failed++;
+  }
+
+  downloadState.currentIndex++;
+
+  // Add delay between downloads
+  const settings = await chrome.storage.local.get(['downloadDelay']);
+  const delay = settings.downloadDelay || 2000;
+
+  setTimeout(() => {
+    processNextDownload();
+  }, delay);
+}
+
+// Download a single album
+async function downloadAlbum(purchase) {
+  try {
+    // Find or create a Bandcamp tab
+    const tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
+    let tab = tabs[0];
+
+    // Get download link from the album page
+    const linkResponse = await chrome.tabs.sendMessage(tab.id, {
+      type: 'GET_DOWNLOAD_LINK',
+      albumUrl: purchase.url
+    });
+
+    if (linkResponse.navigating) {
+      // Wait for navigation
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Try again after navigation
+      const retryResponse = await chrome.tabs.sendMessage(tab.id, {
+        type: 'GET_DOWNLOAD_LINK',
+        albumUrl: purchase.url
+      });
+
+      if (retryResponse.success && retryResponse.downloadUrl) {
+        await initiateDownload(retryResponse.downloadUrl, purchase);
+      }
+    } else if (linkResponse.success && linkResponse.downloadUrl) {
+      await initiateDownload(linkResponse.downloadUrl, purchase);
+    }
+  } catch (error) {
+    console.error('Error downloading album:', error);
+    throw error;
+  }
+}
+
+// Initiate actual file download
+async function initiateDownload(downloadUrl, purchase) {
+  try {
+    // Navigate to download page which should trigger browser download
+    const tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
+    if (tabs.length > 0) {
+      await chrome.tabs.update(tabs[0].id, { url: downloadUrl });
+    }
+  } catch (error) {
+    console.error('Error initiating download:', error);
+  }
+}
+
+// Handle individual album download request
+async function handleDownloadAlbum(data, sendResponse) {
+  try {
+    await downloadAlbum(data);
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
 }
 
 // Enhanced authentication handler with better cookie detection

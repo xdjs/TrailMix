@@ -122,20 +122,50 @@ function updateAuthStatus(status, message) {
 // Event handlers
 async function handleStartDownload() {
   try {
+    addLogEntry('Discovering purchases...');
+
+    // First, discover purchases
+    const discoveryResponse = await sendMessageToBackground({ type: 'DISCOVER_PURCHASES' });
+
+    if (!discoveryResponse.success) {
+      addLogEntry('Failed to discover purchases: ' + (discoveryResponse.error || 'Unknown error'), 'error');
+      return;
+    }
+
+    const purchaseCount = discoveryResponse.purchases ? discoveryResponse.purchases.length : 0;
+    addLogEntry(`Found ${purchaseCount} purchases`);
+
+    if (purchaseCount === 0) {
+      addLogEntry('No purchases found to download', 'warning');
+      return;
+    }
+
+    // Show first few purchases
+    if (discoveryResponse.purchases) {
+      discoveryResponse.purchases.slice(0, 3).forEach(purchase => {
+        addLogEntry(`  • ${purchase.title} by ${purchase.artist}`);
+      });
+      if (purchaseCount > 3) {
+        addLogEntry(`  ... and ${purchaseCount - 3} more`);
+      }
+    }
+
     addLogEntry('Starting download process...');
-    
     const response = await sendMessageToBackground({ type: 'START_DOWNLOAD' });
-    
+
     if (response.status === 'started') {
       elements.progressSection.style.display = 'block';
       elements.startBtn.style.display = 'none';
       elements.pauseBtn.style.display = 'inline-block';
       elements.stopBtn.style.display = 'inline-block';
-      
+
+      elements.progressStats.textContent = `0 of ${response.totalPurchases || 0} albums`;
       addLogEntry('Download started', 'success');
+    } else if (response.status === 'failed') {
+      addLogEntry('Failed to start download: ' + (response.error || 'Unknown error'), 'error');
     }
   } catch (error) {
-    addLogEntry('Failed to start download', 'error');
+    addLogEntry('Failed to start download: ' + error.message, 'error');
   }
 }
 
