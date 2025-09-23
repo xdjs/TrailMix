@@ -29,7 +29,8 @@ async function initializeExtension() {
       retryAttempts: 3,
       downloadDelay: 2000, // 2 seconds between downloads
       metadataEmbedding: true,
-      artworkEmbedding: true
+      artworkEmbedding: true,
+      maxConcurrentDownloads: 3 // Default to 3 parallel downloads
     });
     
     // Extension initialized with default settings
@@ -95,7 +96,9 @@ let downloadState = {
   purchases: [],
   currentIndex: 0,
   completed: 0,
-  failed: 0
+  failed: 0,
+  activeDownloads: new Map(), // Track active download tabs
+  downloadQueue: []            // Queue of pending downloads
 };
 
 // Download handlers
@@ -207,38 +210,214 @@ async function discoverPurchases() {
   }
 }
 
-// Process next download in queue
+// Process downloads with parallel management
 async function processNextDownload() {
   if (!downloadState.isActive || downloadState.isPaused) {
     return;
   }
 
-  if (downloadState.currentIndex >= downloadState.purchases.length) {
-    // All downloads complete
+  // Get configured max concurrent downloads
+  const settings = await chrome.storage.local.get(['maxConcurrentDownloads']);
+  const maxConcurrent = settings.maxConcurrentDownloads || 3; // Default to 3
+
+  // Check if we can start more downloads
+  while (downloadState.activeDownloads.size < maxConcurrent &&
+         downloadState.currentIndex < downloadState.purchases.length) {
+
+    const purchase = downloadState.purchases[downloadState.currentIndex];
+    downloadState.currentIndex++;
+
+    // Start download in parallel
+    startParallelDownload(purchase);
+  }
+
+  // Check if all downloads are complete
+  if (downloadState.activeDownloads.size === 0 &&
+      downloadState.currentIndex >= downloadState.purchases.length) {
     downloadState.isActive = false;
-    return;
+    console.log(`Downloads complete: ${downloadState.completed} successful, ${downloadState.failed} failed`);
   }
+}
 
-  const purchase = downloadState.purchases[downloadState.currentIndex];
-
+// Start a download in parallel
+async function startParallelDownload(purchase) {
   try {
-    // Download this album
-    await downloadAlbum(purchase);
-    downloadState.completed++;
+    // If we already have the download URL, use it directly
+    if (purchase.downloadUrl) {
+      // Create a new tab for this download
+      const tab = await chrome.tabs.create({
+        url: purchase.downloadUrl,
+        active: false  // Don't switch to the tab
+      });
+
+      // Track this download
+      downloadState.activeDownloads.set(tab.id, {
+        purchase: purchase,
+        tabId: tab.id,
+        status: 'downloading'
+      });
+
+      // Monitor the tab for download completion
+      monitorDownloadTab(tab.id, purchase);
+    } else {
+      // Fallback to old method if no download URL
+      await downloadAlbum(purchase);
+    }
   } catch (error) {
-    console.error('Failed to download:', purchase.title, error);
+    console.error('Failed to start download:', purchase.title, error);
     downloadState.failed++;
+
+    // Process next download
+    processNextDownload();
   }
+}
 
-  downloadState.currentIndex++;
+// Monitor a download tab for completion
+async function monitorDownloadTab(tabId, purchase) {
+  try {
+    // Initial delay to let page load
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Add delay between downloads
-  const settings = await chrome.storage.local.get(['downloadDelay']);
-  const delay = settings.downloadDelay || 2000;
+    // Send message to content script to monitor download page
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, {
+        type: 'MONITOR_DOWNLOAD_PAGE'
+      });
 
+      if (response && response.success) {
+        console.log(`Download monitoring started for ${purchase.title}: ${response.status}`);
+      }
+    } catch (err) {
+      console.log('Content script not ready yet, will retry...');
+    }
+
+    // Monitor the tab for changes
+    const checkInterval = setInterval(async () => {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+
+        // Check if tab still exists
+        if (!tab) {
+          clearInterval(checkInterval);
+          handleDownloadComplete(tabId, purchase);
+          return;
+        }
+
+        // Check various completion indicators
+        if (tab.url && (
+          tab.url.includes('download_complete') ||
+          tab.url.includes('thank-you') ||
+          tab.url.includes('.zip') ||  // Direct download file
+          tab.url.startsWith('blob:')   // Downloaded blob
+        )) {
+          clearInterval(checkInterval);
+
+          // Wait a bit for download to fully start
+          await new Promise(resolve => setTimeout(resolve, 3000));
+
+          // Close the tab
+          try {
+            await chrome.tabs.remove(tabId);
+          } catch (e) {
+            // Tab may already be closed
+          }
+
+          handleDownloadComplete(tabId, purchase);
+        }
+      } catch (error) {
+        // Tab was likely closed
+        clearInterval(checkInterval);
+        handleDownloadComplete(tabId, purchase);
+      }
+    }, 2000); // Check every 2 seconds
+
+    // Set a timeout to prevent infinite monitoring
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      handleDownloadComplete(tabId, purchase);
+    }, 120000); // 2 minute timeout
+
+  } catch (error) {
+    console.error('Error monitoring download tab:', error);
+    handleDownloadComplete(tabId, purchase);
+  }
+}
+
+// Handle download completion
+function handleDownloadComplete(tabId, purchase) {
+  // Remove from active downloads
+  downloadState.activeDownloads.delete(tabId);
+
+  // Update stats
+  downloadState.completed++;
+
+  console.log(`Download complete: ${purchase.title} (${downloadState.completed}/${downloadState.purchases.length})`);
+
+  // Send progress update to popup
+  broadcastProgress();
+
+  // Process next download
   setTimeout(() => {
     processNextDownload();
-  }, delay);
+  }, 1000); // Small delay between starting next download
+}
+
+// Broadcast progress to popup
+function broadcastProgress() {
+  const progress = {
+    total: downloadState.purchases.length,
+    completed: downloadState.completed,
+    failed: downloadState.failed,
+    active: downloadState.activeDownloads.size,
+    isActive: downloadState.isActive,
+    isPaused: downloadState.isPaused
+  };
+
+  // Send to all extension views (popup, etc)
+  chrome.runtime.sendMessage({
+    type: 'DOWNLOAD_PROGRESS',
+    progress: progress
+  }).catch(() => {
+    // Popup might not be open, ignore error
+  });
+}
+
+// Listen for Chrome download events
+chrome.downloads.onChanged.addListener((downloadDelta) => {
+  if (downloadDelta.state) {
+    if (downloadDelta.state.current === 'complete') {
+      console.log(`Chrome download completed: ${downloadDelta.id}`);
+
+      // Track completed downloads
+      chrome.downloads.search({ id: downloadDelta.id }, (downloads) => {
+        if (downloads && downloads.length > 0) {
+          const download = downloads[0];
+          console.log(`Downloaded file: ${download.filename}`);
+
+          // Could match this to our purchase tracking if needed
+        }
+      });
+    } else if (downloadDelta.state.current === 'interrupted') {
+      console.error(`Download interrupted: ${downloadDelta.id}`);
+    }
+  }
+});
+
+// Helper to initiate download with Chrome Downloads API
+async function initiateDirectDownload(url, filename) {
+  try {
+    const downloadId = await chrome.downloads.download({
+      url: url,
+      filename: filename,
+      saveAs: false  // Don't prompt for each file
+    });
+
+    console.log(`Started download ${downloadId} for ${filename}`);
+    return downloadId;
+  } catch (error) {
+    console.error('Failed to start download:', error);
+    return null;
+  }
 }
 
 // Download a single album

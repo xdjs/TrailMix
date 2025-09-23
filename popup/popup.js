@@ -283,14 +283,26 @@ function updateProgress(stats) {
     elements.progressFill.style.width = `${percentage}%`;
     elements.progressText.textContent = `${percentage}%`;
     elements.progressStats.textContent = `${stats.completed} of ${stats.total} albums`;
-    
+
+    // Show active downloads count
+    if (stats.active !== undefined && stats.active > 0) {
+      elements.progressStats.textContent += ` (${stats.active} active)`;
+    }
+
     if (stats.currentAlbum) {
       elements.currentItem.querySelector('.current-album').textContent = stats.currentAlbum;
     }
-    
+
     if (stats.currentTrack) {
       elements.currentItem.querySelector('.current-track').textContent = stats.currentTrack;
     }
   }
 }
+
+// Listen for progress updates from background
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'DOWNLOAD_PROGRESS') {
+    updateProgress(message.progress);
+  }
+});
 

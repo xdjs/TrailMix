@@ -115,6 +115,10 @@ function setupMessageListener() {
         handleAuthenticatedRequest(message.url, sendResponse);
         return true;
 
+      case 'MONITOR_DOWNLOAD_PAGE':
+        handleMonitorDownloadPage(sendResponse);
+        return true;
+
       default:
         console.warn('Unknown message type:', message.type);
         sendResponse({ error: 'Unknown message type' });
@@ -371,15 +375,16 @@ async function handleNavigateToPurchases(sendResponse) {
 // Scrape purchases page
 async function handleScrapePurchases(sendResponse) {
   try {
-    console.log('Scraping collection page...');
+    console.log('Scraping purchases page...');
 
-    // Check if we're on a user collection page (format: bandcamp.com/username)
+    // Check if we're on a purchases page
+    const isPurchasesPage = window.location.pathname.includes('/purchases');
     const isCollectionPage = window.location.hostname === 'bandcamp.com' &&
                             (window.location.pathname.match(/^\/[^\/]+\/?$/) ||
                              window.location.pathname.includes('/collection'));
 
-    if (!isCollectionPage) {
-      sendResponse({ error: 'Not on collection page' });
+    if (!isPurchasesPage && !isCollectionPage) {
+      sendResponse({ error: 'Not on purchases or collection page' });
       return;
     }
 
@@ -446,6 +451,17 @@ async function handleScrapePurchases(sendResponse) {
         // Extract item type (album or track)
         const itemType = url.includes('/track/') ? 'track' : 'album';
 
+        // Extract download link if available (only on purchases page)
+        let downloadUrl = null;
+        if (isPurchasesPage) {
+          // Look for download links within the item container
+          const downloadLink = element.querySelector('a[href*="/download/album"], a[href*="/download/track"], a.download-link, .download-col a');
+          if (downloadLink) {
+            downloadUrl = downloadLink.href;
+            console.log(`Found download link for ${title}: ${downloadUrl}`);
+          }
+        }
+
         if (title && url) {
           purchases.push({
             title,
@@ -453,7 +469,8 @@ async function handleScrapePurchases(sendResponse) {
             url,
             artworkUrl,
             purchaseDate: purchaseDate || '',
-            itemType
+            itemType,
+            downloadUrl  // Include download URL if found
           });
         }
       } catch (err) {
@@ -603,6 +620,91 @@ async function handleScrapeAlbum(albumUrl, sendResponse) {
 
   } catch (error) {
     console.error('Error scraping album:', error);
+    sendResponse({ error: error.message });
+  }
+}
+
+// Monitor download page for state changes
+async function handleMonitorDownloadPage(sendResponse) {
+  try {
+    console.log('Monitoring download page state...');
+
+    // Check if we're on a download page
+    if (!window.location.pathname.includes('/download/')) {
+      sendResponse({ error: 'Not on download page' });
+      return;
+    }
+
+    // Look for "Preparing" message
+    const preparingElement = document.querySelector('.preparing-download, .download-message:contains("Preparing"), h2:contains("Preparing")');
+    const downloadButton = document.querySelector('a[href*=".zip"], a.download-btn, button.download');
+
+    if (preparingElement) {
+      console.log('Download is still preparing...');
+
+      // Wait for download button to appear
+      const observer = new MutationObserver((mutations, obs) => {
+        const downloadBtn = document.querySelector('a[href*=".zip"], a.download-btn, button.download');
+        if (downloadBtn) {
+          console.log('Download ready, button found:', downloadBtn.href || downloadBtn.textContent);
+          obs.disconnect();
+
+          // Auto-click the download button
+          if (downloadBtn.href) {
+            window.location.href = downloadBtn.href;
+          } else {
+            downloadBtn.click();
+          }
+
+          sendResponse({
+            success: true,
+            status: 'download_started',
+            downloadUrl: downloadBtn.href || null
+          });
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+
+      // Set timeout for observer
+      setTimeout(() => {
+        observer.disconnect();
+        sendResponse({
+          success: false,
+          status: 'timeout',
+          error: 'Download preparation timed out'
+        });
+      }, 30000); // 30 second timeout
+
+    } else if (downloadButton) {
+      console.log('Download button already available');
+
+      // Auto-click the download button
+      if (downloadButton.href) {
+        window.location.href = downloadButton.href;
+      } else {
+        downloadButton.click();
+      }
+
+      sendResponse({
+        success: true,
+        status: 'download_started',
+        downloadUrl: downloadButton.href || null
+      });
+
+    } else {
+      sendResponse({
+        success: false,
+        status: 'unknown',
+        error: 'Could not determine download page state'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error monitoring download page:', error);
     sendResponse({ error: error.message });
   }
 }
