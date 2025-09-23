@@ -212,6 +212,9 @@ async function discoverPurchases() {
 
 // Process downloads with parallel management
 async function processNextDownload() {
+  console.log('processNextDownload called. Active:', downloadState.isActive, 'Paused:', downloadState.isPaused);
+  console.log('Current index:', downloadState.currentIndex, 'Total purchases:', downloadState.purchases.length);
+
   if (!downloadState.isActive || downloadState.isPaused) {
     return;
   }
@@ -220,12 +223,16 @@ async function processNextDownload() {
   const settings = await chrome.storage.local.get(['maxConcurrentDownloads']);
   const maxConcurrent = settings.maxConcurrentDownloads || 3; // Default to 3
 
+  console.log('Max concurrent:', maxConcurrent, 'Active downloads:', downloadState.activeDownloads.size);
+
   // Check if we can start more downloads
   while (downloadState.activeDownloads.size < maxConcurrent &&
          downloadState.currentIndex < downloadState.purchases.length) {
 
     const purchase = downloadState.purchases[downloadState.currentIndex];
     downloadState.currentIndex++;
+
+    console.log('Starting download', downloadState.currentIndex, 'of', downloadState.purchases.length);
 
     // Start download in parallel
     startParallelDownload(purchase);
@@ -242,6 +249,8 @@ async function processNextDownload() {
 // Start a download in parallel
 async function startParallelDownload(purchase) {
   try {
+    console.log('Starting download for:', purchase.title, 'URL:', purchase.downloadUrl);
+
     // If we already have the download URL, use it directly
     if (purchase.downloadUrl) {
       // Create a new tab for this download
@@ -249,6 +258,8 @@ async function startParallelDownload(purchase) {
         url: purchase.downloadUrl,
         active: false  // Don't switch to the tab
       });
+
+      console.log('Created tab', tab.id, 'for', purchase.title);
 
       // Track this download
       downloadState.activeDownloads.set(tab.id, {
