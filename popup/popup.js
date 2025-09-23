@@ -151,7 +151,10 @@ async function handleStartDownload() {
     }
 
     addLogEntry('Starting download process...');
-    const response = await sendMessageToBackground({ type: 'START_DOWNLOAD' });
+    const response = await sendMessageToBackground({
+      type: 'START_DOWNLOAD',
+      purchases: discoveryResponse.purchases
+    });
 
     if (response.status === 'started') {
       elements.progressSection.style.display = 'block';

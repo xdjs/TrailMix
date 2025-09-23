@@ -104,14 +104,18 @@ let downloadState = {
 // Download handlers
 async function handleStartDownload(data, sendResponse) {
   try {
-    // First, discover purchases
-    const discoveryResponse = await discoverPurchases();
-    if (!discoveryResponse.success) {
-      sendResponse({ status: 'failed', error: discoveryResponse.error });
-      return;
+    // Use purchases passed from popup if available, otherwise discover
+    if (data && data.purchases) {
+      downloadState.purchases = data.purchases;
+    } else {
+      // Fallback: discover purchases
+      const discoveryResponse = await discoverPurchases();
+      if (!discoveryResponse.success) {
+        sendResponse({ status: 'failed', error: discoveryResponse.error });
+        return;
+      }
+      downloadState.purchases = discoveryResponse.purchases;
     }
-
-    downloadState.purchases = discoveryResponse.purchases;
     downloadState.isActive = true;
     downloadState.isPaused = false;
     downloadState.currentIndex = 0;
