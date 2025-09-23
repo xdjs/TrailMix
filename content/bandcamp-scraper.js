@@ -294,44 +294,135 @@ async function handleAuthenticatedRequest(url, sendResponse) {
 // Navigate to purchases page
 async function handleNavigateToPurchases(sendResponse) {
   try {
+    console.log('Attempting to navigate to purchases page...');
+
     // Check if we're already on the purchases page
     if (window.location.pathname.includes('/purchases')) {
-      sendResponse({ success: true, message: 'Already on purchases page' });
+      sendResponse({ success: true, message: 'Already on purchases page', purchasesUrl: window.location.href });
       return;
     }
 
-    // Find the user menu and navigate to purchases
-    const userMenu = document.querySelector('.menubar-item.user-menu, .user-nav');
-    if (!userMenu) {
-      // Try to find the username link directly
-      const usernameLink = document.querySelector('a[href*="/purchases"]');
-      if (usernameLink) {
-        window.location.href = usernameLink.href;
-        sendResponse({ success: true, message: 'Navigating to purchases page' });
-      } else {
-        // Get current username from page and construct purchases URL
-        const fanNameElement = document.querySelector('.name a, .fan-name');
-        if (fanNameElement) {
-          const username = fanNameElement.textContent.trim();
-          window.location.href = `https://bandcamp.com/${username}/purchases`;
-          sendResponse({ success: true, message: 'Navigating to purchases page' });
-        } else {
-          sendResponse({ error: 'Could not find purchases page link' });
-        }
-      }
-    } else {
-      // Click on user menu to reveal dropdown
-      userMenu.click();
-      await new Promise(resolve => setTimeout(resolve, 100));
+    // Method 1: Look for the account/avatar button
+    console.log('Looking for account/avatar button...');
 
-      const purchasesLink = document.querySelector('a[href*="/purchases"]');
-      if (purchasesLink) {
-        window.location.href = purchasesLink.href;
-        sendResponse({ success: true, message: 'Navigating to purchases page' });
-      } else {
-        sendResponse({ error: 'Could not find purchases link in menu' });
+    // The avatar button is in an <li> with class "account pop-up"
+    // containing a button with class "logged-in-nav"
+    let avatarElement = null;
+
+    // Find the account menu list item
+    const accountMenuItem = document.querySelector('li.account.pop-up, li[class*="account"][class*="pop"]');
+    if (accountMenuItem) {
+      console.log('Found account menu item:', accountMenuItem);
+
+      // Find the button inside it
+      avatarElement = accountMenuItem.querySelector('button.logged-in-nav, button[class*="logged-in"], button');
+      if (avatarElement) {
+        console.log('Found avatar button:', avatarElement);
       }
     }
+
+    // Alternative: Look for the profile avatar
+    if (!avatarElement) {
+      const profileAvatar = document.querySelector('.profile-avatar');
+      if (profileAvatar) {
+        console.log('Found profile avatar, looking for parent button...');
+        avatarElement = profileAvatar.closest('button');
+        if (avatarElement) {
+          console.log('Found avatar button via profile-avatar:', avatarElement);
+        }
+      }
+    }
+
+    // Alternative: Look for button with "Open account menu" aria-label
+    if (!avatarElement) {
+      avatarElement = document.querySelector('button[aria-label*="account" i], button[aria-label*="menu" i]');
+      if (avatarElement) {
+        console.log('Found avatar button via aria-label:', avatarElement);
+      }
+    }
+
+    // Now click the avatar to open dropdown and look for the Purchases link
+    if (avatarElement) {
+      console.log('Clicking avatar to open dropdown...');
+      avatarElement.click();
+
+      // Wait for dropdown to appear and render
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Look for the Purchases link in the dropdown
+      // The dropdown menu items should appear after clicking
+      console.log('Looking for Purchases link...');
+
+      // Try multiple selectors for the Purchases link
+      let purchasesLink = document.querySelector('a[href*="/purchases"]') ||
+                         document.querySelector('a[href*="/carlxt/purchases"]') ||
+                         document.querySelector('.popover-content a[href*="/purchases"]') ||
+                         document.querySelector('[role="menu"] a[href*="/purchases"]');
+
+      // If not found, search by text content
+      if (!purchasesLink) {
+        console.log('Searching for Purchases link by text...');
+        const allLinks = document.querySelectorAll('a');
+        purchasesLink = Array.from(allLinks).find(link => {
+          const text = link.textContent.trim();
+          return text === 'Purchases' || text === 'Your purchases';
+        });
+      }
+
+      // Check if we found it
+      if (purchasesLink && purchasesLink.href) {
+        console.log('Found purchases link:', purchasesLink.href);
+        sendResponse({ success: true, purchasesUrl: purchasesLink.href });
+        return;
+      }
+
+      // Try looking for the dropdown menu container
+      console.log('Looking for dropdown menu container...');
+      const dropdownMenu = document.querySelector('.popover-content, [role="menu"], .dropdown-menu, .account-menu');
+      if (dropdownMenu) {
+        console.log('Found dropdown menu:', dropdownMenu);
+        const menuLinks = dropdownMenu.querySelectorAll('a');
+        console.log('Links in dropdown:', Array.from(menuLinks).map(l => ({ text: l.textContent.trim(), href: l.href })));
+
+        purchasesLink = Array.from(menuLinks).find(link =>
+          link.href.includes('/purchases') || link.textContent.trim() === 'Purchases'
+        );
+
+        if (purchasesLink) {
+          console.log('Found purchases link in dropdown menu:', purchasesLink.href);
+          sendResponse({ success: true, purchasesUrl: purchasesLink.href });
+          return;
+        }
+      }
+
+      // Last attempt - try clicking avatar again
+      console.log('Could not find Purchases link, trying to click avatar again...');
+      avatarElement.click();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      purchasesLink = document.querySelector('a[href*="/purchases"]');
+      if (purchasesLink) {
+        console.log('Found purchases link on second try:', purchasesLink.href);
+        sendResponse({ success: true, purchasesUrl: purchasesLink.href });
+        return;
+      }
+
+      console.log('Failed to find Purchases link after multiple attempts');
+    } else {
+      console.log('Could not find avatar element');
+    }
+
+    // Method 2: Try to find purchases link directly on page
+    const directPurchasesLink = document.querySelector('a[href*="/purchases"]');
+    if (directPurchasesLink) {
+      console.log('Found direct purchases link:', directPurchasesLink.href);
+      sendResponse({ success: true, purchasesUrl: directPurchasesLink.href });
+      return;
+    }
+
+    // If all else fails, return error
+    sendResponse({ error: 'Could not find purchases page. Please click your avatar and select Purchases manually.' });
+
   } catch (error) {
     console.error('Error navigating to purchases:', error);
     sendResponse({ error: error.message });
