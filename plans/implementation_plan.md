@@ -349,104 +349,132 @@ will be implemented after core download functionality is proven.
 - ✅ Automatic detection of login state changes
 - ✅ No credential storage (security requirement met)
 
-### Phase 3: Purchase Discovery & Core Download 🔄 IN PROGRESS
+### Phase 3: Purchase Discovery & Core Download ✅ COMPLETED
 
-**Status**: Implementing core functionality - discover purchases and download
-**Focus**: Get essential flow working before full UI/features
+**Status**: Core functionality implemented with parallel download system
+**Focus**: Discover purchases and download with configurable parallel processing
 **Dependencies**: Basic authentication (✅ complete)
-**Deliverables**: Discover purchases, extract download links, basic download working
+**Deliverables**: Purchase discovery, parallel downloads, Chrome Downloads API integration
 
-#### Task 3.1: Purchases Page Navigation (Day 1)
-- [ ] Implement purchases page navigation:
-  - [ ] Detect current page and navigate to purchases if needed
-  - [ ] Handle Bandcamp URL structure for purchases page
-  - [ ] Add robust page loading detection
-- [ ] Create pagination handling:
-  - [ ] Detect if pagination exists
-  - [ ] Implement page-by-page navigation
-  - [ ] Handle "Load More" buttons if present
-- [ ] Add DOM waiting and loading detection:
-  - [ ] Wait for dynamic content to load
-  - [ ] Detect when purchase list is fully loaded
-  - [ ] Handle slow network conditions
+#### Task 3.1: Purchases Page Navigation ✅ COMPLETED
+- [x] Implement purchases page navigation:
+  - [x] Extract username from Collection button href
+  - [x] Construct purchases URL: `https://bandcamp.com/{username}/purchases`
+  - [x] Navigate directly to purchases page (no UI clicking needed)
+- [x] Handle page detection:
+  - [x] Check if already on purchases page
+  - [x] Detect collection/purchases page variations
+  - [x] Add robust fallback methods
+- [x] Add DOM waiting and loading detection:
+  - [x] Wait for collection-grid elements to load
+  - [x] Handle multiple selector variations
+  - [x] 10-second timeout for slow connections
 
-#### Task 3.2: Album Discovery & Parsing (Day 1-2)
-- [ ] Analyze Bandcamp purchases page DOM structure
-- [ ] Create robust CSS selectors for album elements
-- [ ] Implement album information extraction:
-  - [ ] Album title extraction
-  - [ ] Artist name extraction
-  - [ ] Purchase date extraction
-  - [ ] Album URL extraction
-  - [ ] Thumbnail artwork URL extraction
-- [ ] Add fallback selectors for DOM structure changes
-- [ ] Create album data structure/schema
-- [ ] Test with different purchase page layouts
+#### Task 3.2: Album Discovery & Parsing ✅ COMPLETED
+- [x] Analyze Bandcamp purchases page DOM structure
+- [x] Create robust CSS selectors for album elements:
+  - [x] `ol.collection-grid li.collection-item-container`
+  - [x] Multiple fallback selectors for different layouts
+- [x] Implement album information extraction:
+  - [x] Album title extraction from `.collection-item-title`
+  - [x] Artist name extraction from `.collection-item-artist`
+  - [x] Purchase date extraction (if available)
+  - [x] Album URL extraction from item links
+  - [x] Thumbnail artwork URL extraction
+- [x] Add fallback selectors for DOM structure changes
+- [x] Create album data structure with download URLs
+- [x] Test with purchases page layout
 
-#### Task 3.3: Individual Album Page Processing (Day 2-3)
-- [ ] Implement album page navigation:
-  - [ ] Navigate to individual album pages
-  - [ ] Handle album page loading detection
-  - [ ] Manage browser tab/window for navigation
-- [ ] Create track-level metadata extraction:
-  - [ ] Extract track numbers
-  - [ ] Extract track titles
-  - [ ] Extract track durations
-  - [ ] Identify track order/sequencing
-- [ ] Add album-level metadata extraction:
-  - [ ] Full album title
-  - [ ] Release date
-  - [ ] Album description
-  - [ ] High-resolution artwork URLs
+#### Task 3.3: Download Link Extraction ✅ COMPLETED
+**Note**: Download links are directly available on purchases page - no need to navigate to individual album pages!
+- [x] Extract download links from purchases page:
+  - [x] Find `a[href*="/download/album"]` and `a[href*="/download/track"]` links
+  - [x] Extract download URLs directly from purchase items
+  - [x] Store download URLs with purchase metadata
+- [x] Skip individual album page navigation (not needed)
+- [x] Implement parallel download architecture:
+  - [x] Configurable MAX_CONCURRENT_DOWNLOADS (default: 3)
+  - [x] Tab pool management for parallel downloads
+  - [x] Active download tracking with Map structure
 
-#### Task 3.4: Download Link Discovery (Day 3-4)
-- [ ] Locate download page access:
-  - [ ] Find download links/buttons on album pages
-  - [ ] Navigate to download pages
-  - [ ] Handle download page authentication
-- [ ] Implement MP3 download link extraction:
-  - [ ] Parse download page DOM for MP3 links
-  - [ ] Extract direct download URLs
-  - [ ] Handle different download page layouts
-  - [ ] Validate download link accessibility
-- [ ] Add download format detection:
-  - [ ] Confirm MP3 format availability
-  - [ ] Handle cases where MP3 isn't available
-  - [ ] Extract download file metadata
+#### Task 3.4: Download Page Processing ✅ COMPLETED
+- [x] Handle download page states:
+  - [x] Detect "Preparing" state on download pages
+  - [x] Monitor for download button appearance
+  - [x] Auto-click download button when ready
+  - [x] 30-second timeout for preparation
+- [x] Implement download monitoring:
+  - [x] Track tab states for completion
+  - [x] Detect download_complete or thank-you pages
+  - [x] Auto-close tabs after download starts
+- [x] Add Chrome Downloads API integration:
+  - [x] Listen for download state changes
+  - [x] Track completed downloads
+  - [x] Helper function for direct download initiation
 
-#### Task 3.5: Data Aggregation & Validation (Day 4)
-- [ ] Create comprehensive data structure:
-  - [ ] Combine album and track metadata
-  - [ ] Link download URLs to tracks
-  - [ ] Organize data for download processing
-- [ ] Implement data validation:
-  - [ ] Verify all required fields are present
-  - [ ] Validate download URLs are accessible
-  - [ ] Check for missing or corrupted metadata
-- [ ] Add data sanitization:
-  - [ ] Clean up extracted text (remove HTML, fix encoding)
-  - [ ] Sanitize filenames and paths
-  - [ ] Handle special characters and unicode
+#### Task 3.5: Parallel Download Management ✅ COMPLETED
+- [x] Create parallel download system:
+  - [x] Implement `startParallelDownload()` function
+  - [x] Track active downloads with Map structure
+  - [x] Queue management for pending downloads
+- [x] Add configurable concurrency:
+  - [x] `maxConcurrentDownloads` setting (default: 3)
+  - [x] Dynamic spawning of new downloads as others complete
+  - [x] Prevent overwhelming browser with too many tabs
+- [x] Implement progress tracking:
+  - [x] Real-time progress broadcasting to popup
+  - [x] Track completed, failed, and active counts
+  - [x] Display active download count in UI
 
-#### Task 3.6: Scraping Testing & Mock Data (Day 5)
-- [ ] Test scraping with various account types:
-  - [ ] Accounts with many purchases
-  - [ ] Accounts with few purchases
-  - [ ] Different album types (single, EP, LP)
-- [ ] Create mock data for testing:
-  - [ ] Sample album metadata
-  - [ ] Mock download URLs
-  - [ ] Test data for edge cases
-- [ ] Validate scraping accuracy:
-  - [ ] Compare extracted data with actual album info
-  - [ ] Test download link validity
-  - [ ] Verify metadata completeness
+#### Task 3.6: Download Completion Handling ✅ COMPLETED
+- [x] Monitor download tabs:
+  - [x] Check for completion indicators every 2 seconds
+  - [x] Detect download_complete, thank-you, or .zip URLs
+  - [x] 2-minute timeout for stuck downloads
+- [x] Handle tab lifecycle:
+  - [x] Auto-close tabs after download starts
+  - [x] Clean up tracking data on completion
+  - [x] Start next download from queue
+- [x] Error handling:
+  - [x] Track failed downloads separately
+  - [x] Continue processing queue on failures
+  - [x] Log detailed error information
 
-**Unit Tests:**
-- [ ] Test DOM parsing functions with mock HTML
-- [ ] Test CSS selector robustness with variations
-- [ ] Test metadata extraction accuracy
-- [ ] Test pagination handling logic
+**Manual Testing Instructions for Phase 3:**
+
+1. **Setup:**
+   - Load extension in Chrome developer mode
+   - Log in to Bandcamp with an account that has purchases
+   - Open the extension popup
+
+2. **Test Purchase Discovery:**
+   - Click "Start Download" button
+   - Verify extension navigates to `https://bandcamp.com/{username}/purchases`
+   - Check console for "Found X purchases" message
+   - Verify popup shows list of first 3 purchases
+
+3. **Test Parallel Downloads:**
+   - After discovery completes, watch for multiple tabs opening (up to 3)
+   - Each tab should navigate to a download page
+   - Verify tabs auto-close after download starts
+   - Check progress bar shows "X of Y albums (Z active)"
+
+4. **Test Download Page Handling:**
+   - Watch for "Preparing download..." pages
+   - Verify extension auto-clicks download button when ready
+   - Check that actual file downloads start in Chrome
+
+5. **Test Completion:**
+   - Wait for all downloads to complete
+   - Verify final message shows completed and failed counts
+   - Check Chrome's download folder for .zip files
+
+**Expected Results:**
+- ✅ Purchases discovered successfully
+- ✅ Multiple downloads run in parallel (max 3 tabs)
+- ✅ "Preparing" state handled automatically
+- ✅ Progress updates shown in real-time
+- ✅ Files downloaded to Chrome's default download folder
 - [ ] Test download link validation functions
 
 **Acceptance Test:**
