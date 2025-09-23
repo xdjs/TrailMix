@@ -10,8 +10,6 @@ let elements = {};
 document.addEventListener('DOMContentLoaded', initializePopup);
 
 async function initializePopup() {
-  console.log('Initializing Bandcamp Downloader popup');
-  
   // Get DOM elements
   elements = {
     authStatus: document.getElementById('authStatus'),
@@ -77,7 +75,6 @@ async function loadInitialState() {
     
     addLogEntry('Extension loaded successfully');
   } catch (error) {
-    console.error('Failed to load initial state:', error);
     addLogEntry('Failed to load extension state', 'error');
   }
 }
@@ -112,7 +109,6 @@ async function checkAuthenticationStatus() {
       addLogEntry('Authentication required - please log in to Bandcamp', 'warning');
     }
   } catch (error) {
-    console.error('Failed to check authentication:', error);
     updateAuthStatus('error', 'Unable to check authentication');
     addLogEntry('Authentication check failed', 'error');
   }
@@ -139,7 +135,6 @@ async function handleStartDownload() {
       addLogEntry('Download started', 'success');
     }
   } catch (error) {
-    console.error('Failed to start download:', error);
     addLogEntry('Failed to start download', 'error');
   }
 }
@@ -154,7 +149,6 @@ async function handlePauseDownload() {
       addLogEntry('Download paused', 'warning');
     }
   } catch (error) {
-    console.error('Failed to pause download:', error);
     addLogEntry('Failed to pause download', 'error');
   }
 }
@@ -169,7 +163,6 @@ async function handleResumeDownload() {
       addLogEntry('Download resumed', 'success');
     }
   } catch (error) {
-    console.error('Failed to resume download:', error);
     addLogEntry('Failed to resume download', 'error');
   }
 }
@@ -187,7 +180,6 @@ async function handleStopDownload() {
       addLogEntry('Download stopped', 'warning');
     }
   } catch (error) {
-    console.error('Failed to stop download:', error);
     addLogEntry('Failed to stop download', 'error');
   }
 }
@@ -201,7 +193,6 @@ async function handleLogin() {
     // Close popup
     window.close();
   } catch (error) {
-    console.error('Failed to open login page:', error);
     addLogEntry('Failed to open login page', 'error');
   }
 }
@@ -224,7 +215,6 @@ async function handleSettingsChange() {
     await chrome.storage.local.set(settings);
     addLogEntry('Settings saved');
   } catch (error) {
-    console.error('Failed to save settings:', error);
     addLogEntry('Failed to save settings', 'error');
   }
 }
@@ -273,6 +263,4 @@ function updateProgress(stats) {
     }
   }
 }
-
-console.log('Bandcamp Downloader popup script loaded');
 
