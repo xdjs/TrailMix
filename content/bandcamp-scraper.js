@@ -129,10 +129,45 @@ async function handleCheckAuthStatus(sendResponse) {
     const loginLink = document.querySelector('a[href*="/login"]');
     const userMenu = document.querySelector('.menubar-item.user-menu');
     const isLoggedIn = !loginLink && !!userMenu;
-    
-    sendResponse({ 
+
+    // Try to get username from various places on the page
+    let username = null;
+
+    // Try user menu dropdown
+    const usernameLink = document.querySelector('.user-nav a[href*="/bandcamp.com/"], .menubar-item.user-menu a[href*="/bandcamp.com/"]');
+    if (usernameLink) {
+      const match = usernameLink.href.match(/bandcamp\.com\/([^\/\?]+)/);
+      if (match) {
+        username = match[1];
+      }
+    }
+
+    // Try the "view collection" link
+    if (!username) {
+      const collectionLink = document.querySelector('a[href*="bandcamp.com/"][href$="/collection"], a[href*="bandcamp.com/"][href*="/purchases"]');
+      if (collectionLink) {
+        const match = collectionLink.href.match(/bandcamp\.com\/([^\/\?]+)/);
+        if (match) {
+          username = match[1];
+        }
+      }
+    }
+
+    // Try the logged-in user indicator
+    if (!username) {
+      const fanName = document.querySelector('.name.logged-in-name a, .fan-name a');
+      if (fanName && fanName.href) {
+        const match = fanName.href.match(/bandcamp\.com\/([^\/\?]+)/);
+        if (match) {
+          username = match[1];
+        }
+      }
+    }
+
+    sendResponse({
       authenticated: isLoggedIn,
-      currentUrl: window.location.href 
+      username: username,
+      currentUrl: window.location.href
     });
   } catch (error) {
     console.error('Error checking auth status:', error);
@@ -230,31 +265,41 @@ async function handleNavigateToPurchases(sendResponse) {
 // Scrape purchases page
 async function handleScrapePurchases(sendResponse) {
   try {
-    console.log('Scraping purchases page...');
+    console.log('Scraping collection page...');
 
-    // Check if we're on the purchases page
-    if (!window.location.pathname.includes('/purchases')) {
-      sendResponse({ error: 'Not on purchases page' });
+    // Check if we're on a user collection page (format: bandcamp.com/username)
+    const isCollectionPage = window.location.hostname === 'bandcamp.com' &&
+                            (window.location.pathname.match(/^\/[^\/]+\/?$/) ||
+                             window.location.pathname.includes('/collection'));
+
+    if (!isCollectionPage) {
+      sendResponse({ error: 'Not on collection page' });
       return;
     }
 
-    // Wait for purchase items to load
-    await DOMUtils.waitForElement('.collection-item-container, .collection-grid, .purchases-grid', 10000);
+    // Wait for collection items to load
+    try {
+      await DOMUtils.waitForElement('.collection-grid, .collection-items, .collection-item-container, ol.collection-grid', 10000);
+    } catch (err) {
+      console.log('No collection grid found, checking for other selectors...');
+    }
 
-    // Find all purchase items - try multiple selectors
+    // Find all purchase items - try multiple selectors for the collection page
     const purchaseSelectors = [
-      '.collection-item-container',
+      'ol.collection-grid li.collection-item-container',  // Main collection grid items
+      'li.collection-item-container',
+      '.collection-grid .collection-item-container',
+      '.collection-items .collection-item-container',
       '.collection-item',
-      '.purchase-item',
-      '.collection-grid li',
-      '.purchases-grid li'
+      'li[data-itemid]',  // Items with data attributes
+      '.fan-collection li'
     ];
 
     let purchaseElements = [];
     for (const selector of purchaseSelectors) {
       purchaseElements = document.querySelectorAll(selector);
       if (purchaseElements.length > 0) {
-        console.log(`Found ${purchaseElements.length} purchases using selector: ${selector}`);
+        console.log(`Found ${purchaseElements.length} items using selector: ${selector}`);
         break;
       }
     }

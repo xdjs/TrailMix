@@ -162,31 +162,51 @@ async function discoverPurchases() {
       await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
-    // Check if we're already on the purchases page
-    if (!tab.url.includes('/purchases')) {
-      // Try to get the username from the current page first
+    // Check if we're already on the user's collection page
+    const isOnCollection = tab.url.includes('bandcamp.com/') &&
+                          (tab.url.endsWith('/collection') ||
+                           tab.url.includes('/collection?') ||
+                           tab.url.match(/bandcamp\.com\/[^\/]+\/?$/));
+
+    if (!isOnCollection) {
       try {
+        // Get the username from the current page
         const authResponse = await chrome.tabs.sendMessage(tab.id, { type: 'CHECK_AUTH_STATUS' });
 
-        // Navigate directly to purchases page
-        // Most users' purchases are at bandcamp.com/[username]/purchases
-        await chrome.tabs.update(tab.id, { url: 'https://bandcamp.com/purchases' });
+        if (authResponse.username) {
+          // Navigate to the user's collection page
+          const collectionUrl = `https://bandcamp.com/${authResponse.username}`;
+          await chrome.tabs.update(tab.id, { url: collectionUrl });
 
-        // Wait for navigation to complete
-        await new Promise(resolve => setTimeout(resolve, 3000));
+          // Wait for navigation to complete
+          await new Promise(resolve => setTimeout(resolve, 3000));
 
-        // Update tab info after navigation
-        tab = await chrome.tabs.get(tab.id);
+          // Update tab info after navigation
+          tab = await chrome.tabs.get(tab.id);
+        } else {
+          // If we can't get username, try to find it from cookies or navigation
+          // First, try navigating to the main page to get logged-in user info
+          await chrome.tabs.update(tab.id, { url: 'https://bandcamp.com' });
+          await new Promise(resolve => setTimeout(resolve, 3000));
+
+          // Try again to get username
+          const retryAuth = await chrome.tabs.sendMessage(tab.id, { type: 'CHECK_AUTH_STATUS' });
+          if (retryAuth.username) {
+            const collectionUrl = `https://bandcamp.com/${retryAuth.username}`;
+            await chrome.tabs.update(tab.id, { url: collectionUrl });
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            tab = await chrome.tabs.get(tab.id);
+          } else {
+            return { success: false, error: 'Could not determine username. Please visit your Bandcamp collection page manually.' };
+          }
+        }
       } catch (err) {
-        // If we can't send a message, the content script might not be loaded
-        // Navigate to the purchases page directly
-        await chrome.tabs.update(tab.id, { url: 'https://bandcamp.com/purchases' });
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        tab = await chrome.tabs.get(tab.id);
+        console.error('Error getting username:', err);
+        return { success: false, error: 'Could not determine username. Please visit your Bandcamp collection page manually.' };
       }
     }
 
-    // Now scrape purchases from the page
+    // Now scrape purchases from the collection page
     const scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
 
     return scrapeResponse;
