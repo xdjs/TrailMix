@@ -388,6 +388,46 @@ async function handleScrapePurchases(sendResponse) {
       return;
     }
 
+    // Try to extract data from pagedata blob first (purchases page)
+    if (isPurchasesPage) {
+      const pageDataElement = document.getElementById('pagedata');
+      if (pageDataElement) {
+        try {
+          const pageData = JSON.parse(pageDataElement.getAttribute('data-blob'));
+          if (pageData && pageData.orderhistory && pageData.orderhistory.items) {
+            const purchases = [];
+
+            for (const item of pageData.orderhistory.items) {
+              // Skip items without download URLs (subscriptions, etc.)
+              if (!item.download_url) continue;
+
+              purchases.push({
+                title: item.item_title || 'Unknown Title',
+                artist: item.artist_name || item.seller_name || 'Unknown Artist',
+                url: item.item_url || '',
+                artworkUrl: item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_2.jpg` : '',
+                purchaseDate: item.payment_date || '',
+                itemType: item.download_type === 't' ? 'track' : 'album',
+                downloadUrl: item.download_url.replace(/&amp;/g, '&') // Decode HTML entities
+              });
+            }
+
+            console.log(`Successfully scraped ${purchases.length} purchases from pagedata`);
+
+            sendResponse({
+              success: true,
+              purchases,
+              totalCount: purchases.length
+            });
+            return;
+          }
+        } catch (err) {
+          console.error('Error parsing pagedata:', err);
+          // Fall through to DOM scraping
+        }
+      }
+    }
+
     // Wait for collection items to load
     try {
       await DOMUtils.waitForElement('.collection-grid, .collection-items, .collection-item-container, ol.collection-grid', 10000);
