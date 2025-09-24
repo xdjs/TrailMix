@@ -148,11 +148,9 @@ async function handleCheckAuthStatus(sendResponse) {
     // Method 1: Look for the Collection button/link in the header
     // Try multiple selectors for the Collection button
     const collectionSelectors = [
-      'a[href*="?from=menubar"]',  // Link with from=menubar parameter
-      'a.menubar-item:has-text("Collection")',  // Link containing "Collection" text
-      'a:contains("Collection")',
-      '.menubar a[href*="bandcamp.com/"][href*="?"]',  // Menubar links with parameters
-      'a[href$="?from=menubar"]'  // Links ending with from=menubar
+      'a[href*="?from=menubar"]',
+      '.menubar a[href*="bandcamp.com/"][href*="?"]',
+      'a[href$="?from=menubar"]'
     ];
 
     let collectionButton = null;
@@ -163,7 +161,7 @@ async function handleCheckAuthStatus(sendResponse) {
           // Try finding by text content
           const allLinks = document.querySelectorAll('a');
           collectionButton = Array.from(allLinks).find(link =>
-            link.textContent.trim() === 'Collection' && link.href.includes('bandcamp.com')
+            link.textContent.trim().toLowerCase() === 'collection' && link.href.includes('bandcamp.com')
           );
         }
         if (collectionButton) break;
@@ -573,7 +571,6 @@ async function handleGetDownloadLink(albumUrl, sendResponse) {
       'a[href*="/download/track"]',
       'a.download-link',
       '.download-col a',
-      'a:contains("download")',
       'span.buyItem a[href*="download"]'
     ];
 
@@ -589,7 +586,6 @@ async function handleGetDownloadLink(albumUrl, sendResponse) {
     // If no direct download link, check if there's a "you own this" indicator
     const ownedIndicators = [
       '.you-own-this',
-      'span:contains("you own this")',
       '.ownership',
       '.download-link-container'
     ];
@@ -597,13 +593,22 @@ async function handleGetDownloadLink(albumUrl, sendResponse) {
     let isOwned = false;
     for (const selector of ownedIndicators) {
       const element = document.querySelector(selector);
-      if (element) {
-        isOwned = true;
-        break;
-      }
+      if (element) { isOwned = true; break; }
+    }
+    if (!isOwned) {
+      // Fallback by scanning text content for ownership
+      const elements = Array.from(document.querySelectorAll('body *'));
+      isOwned = elements.some(el => (el.textContent || '').toLowerCase().includes('you own this'));
     }
 
     if (downloadLink) {
+      try {
+        // Normalize URL using utilities if available
+        const utils = (typeof window !== 'undefined' && window.TrailMixUtils) || {};
+        const decode = (utils.StringUtils && utils.StringUtils.decodeHtml) ? utils.StringUtils.decodeHtml : (s => s);
+        const toAbs = (utils.UrlUtils && utils.UrlUtils.toAbsolute) ? utils.UrlUtils.toAbsolute : (s => s);
+        downloadLink = toAbs(decode(downloadLink));
+      } catch (_) {}
       sendResponse({
         success: true,
         downloadUrl: downloadLink,
@@ -698,8 +703,13 @@ async function handleMonitorDownloadPage(sendResponse) {
       return;
     }
 
-    // Look for "Preparing" message
-    const preparingElement = document.querySelector('.preparing-download, .download-message:contains("Preparing"), h2:contains("Preparing")');
+    // Look for "Preparing" message (scan text, avoid :contains)
+    let preparingElement = document.querySelector('.preparing-download');
+    if (!preparingElement) {
+      const candidates = Array.from(document.querySelectorAll('.download-message, h2, p'));
+      const match = candidates.find(el => (el.textContent || '').toLowerCase().includes('preparing'));
+      if (match) preparingElement = match;
+    }
     const downloadButton = document.querySelector('a[href*=".zip"], a.download-btn, button.download');
 
     if (preparingElement) {

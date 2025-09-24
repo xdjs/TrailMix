@@ -112,6 +112,9 @@ async function handleStartDownload(data, sendResponse) {
     // Use purchases passed from popup if available, otherwise discover
     if (data && data.purchases) {
       downloadState.purchases = data.purchases;
+    } else if (data && data.data && Array.isArray(data.data.purchases)) {
+      // Accept nested payload shape as well
+      downloadState.purchases = data.data.purchases;
     } else {
       // Fallback: discover purchases
       const discoveryResponse = await discoverPurchases();
