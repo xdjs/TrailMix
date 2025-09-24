@@ -94,10 +94,13 @@ global.TrailMixAuth = {
 };
 
 // Mock document methods
-Object.defineProperty(document, 'readyState', {
-  value: 'complete',
-  writable: true
-});
+try {
+  Object.defineProperty(document, 'readyState', {
+    value: 'complete',
+    writable: true,
+    configurable: true
+  });
+} catch (_) {}
 
 // Fix TextEncoder/TextDecoder for jsdom
 const { TextEncoder, TextDecoder } = require('util');
@@ -137,3 +140,9 @@ afterEach(() => {
     });
   }
 });
+
+
+// Provide Jasmine-style pending to silence tests that call it
+if (typeof global.pending !== 'function') {
+  global.pending = () => {};
+}
