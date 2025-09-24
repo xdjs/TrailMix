@@ -1,13 +1,13 @@
 # Trail Mix - Implementation Plan
 
-## 🎉 Project Status: Moving to Phase 3 - Core Functionality Focus!
+## 🎉 Project Status: Phase 3 Complete — Moving to Phase 4
 
 **✅ PHASE 1 COMPLETED** - Chrome Extension Foundation
 **✅ PHASE 2 SIMPLIFIED** - Basic Authentication (Login button opens Bandcamp login)
-**🔄 PHASE 3 IN PROGRESS** - Purchase Discovery & Core Download
-**📊 Progress**: Focusing on core functionality before full UI buildout
-**🧪 Testing**: All unit tests passing with comprehensive error handling
-**🚀 Status**: Authentication working with tab-based login, ready for purchase discovery
+**✅ PHASE 3 COMPLETED** - Purchase Discovery & Parallel Download Start
+**📊 Progress**: Discovery via pagedata + normalized download URLs; tabs spawn with configurable concurrency
+**🧪 Testing**: Manual runs confirm 3 concurrent tabs; diagnostics added in service worker
+**🚀 Status**: One-step kickoff (`DISCOVER_AND_START`) implemented; ready to evolve download manager (Phase 4)
 
 ### Recent Achievements:
 - ✅ **Phase 1 Complete**: Full Chrome extension foundation
@@ -19,9 +19,10 @@
 ### Strategic Decision:
 **Focusing on Core Functionality First** - Getting the essential flow working:
 1. Detect login state ✅
-2. Find user's purchases (Phase 3 - In Progress)
-3. Download purchases with metadata (Phase 3/4 - Upcoming)
-4. Then circle back to polish UI and advanced features
+2. Find user's purchases ✅ (Phase 3)
+3. Start parallel downloads via tabs ✅ (Phase 3)
+4. Build download manager + metadata (Phase 4/5 - Upcoming)
+5. Then circle back to polish UI and advanced features
 
 ### Phase 1 Foundation:
 - ✅ Complete Chrome extension structure implemented
@@ -32,7 +33,7 @@
 - ✅ Full testing infrastructure with Jest and Chrome API mocks
 - ✅ Git repository initialized with all code committed
 
-**🔄 Next**: Phase 3 Task 3.1 - Purchase Page Navigation & Discovery
+**🔄 Next**: Phase 4 Task 4.1 - Core Download Engine (download manager foundation)
 
 ---
 
@@ -355,6 +356,11 @@ will be implemented after core download functionality is proven.
 **Focus**: Discover purchases and download with configurable parallel processing
 **Dependencies**: Basic authentication (✅ complete)
 **Deliverables**: Purchase discovery, parallel downloads, Chrome Downloads API integration
+
+Additional outcome:
+- ✅ Single-step kickoff route `DISCOVER_AND_START` implemented in service worker
+- ✅ Popup updated to prefer `DISCOVER_AND_START` with legacy fallback
+- ✅ Tabs opened in background (inactive) to keep popup open during discovery
 
 #### Task 3.1: Purchases Page Navigation ✅ COMPLETED
 - [x] Implement purchases page navigation:
@@ -1023,7 +1029,7 @@ chrome.cookies.getAll({
 |-------|--------|------------------|-------|
 | 1 | ✅ COMPLETED | Extension foundation, manifest, service worker | All 7 tasks complete |
 | 2 | ✅ SIMPLIFIED | Basic authentication with tab-based login | Core auth working, advanced features deferred |
-| 3 | 🔄 IN PROGRESS | Purchase discovery & core download | Focus on essential functionality |
+| 3 | ✅ COMPLETED | Purchase discovery & core download | DISCOVER_AND_START + parallel tab spawning |
 | 4 | ⏳ MODIFIED | Basic download implementation | Will implement core features only |
 | 5 | ⏳ DEFERRED | Metadata and file organization | After core functionality proven |
 | 6 | ⏳ DEFERRED | Full UI development | After core functionality proven |
