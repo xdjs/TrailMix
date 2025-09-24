@@ -31,7 +31,8 @@ global.chrome = {
     sendMessage: jest.fn(),
     create: jest.fn(),
     remove: jest.fn(),
-    get: jest.fn()
+    get: jest.fn(),
+    update: jest.fn()
   },
   downloads: {
     download: jest.fn(),
@@ -44,6 +45,14 @@ global.chrome = {
     getAll: jest.fn()
   }
 };
+
+// Shim service worker global 'self'
+if (!global.self) {
+  global.self = {
+    addEventListener: jest.fn(),
+    dispatchEvent: jest.fn()
+  };
+}
 
 // Mock console methods for cleaner test output (but preserve original)
 const originalConsole = global.console;
@@ -128,4 +137,3 @@ afterEach(() => {
     });
   }
 });
-

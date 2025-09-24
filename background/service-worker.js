@@ -480,6 +480,7 @@ function broadcastProgress() {
 }
 
 // Listen for Chrome download events
+if (chrome.downloads && chrome.downloads.onChanged && typeof chrome.downloads.onChanged.addListener === 'function') {
 chrome.downloads.onChanged.addListener((downloadDelta) => {
   if (downloadDelta.state) {
     if (downloadDelta.state.current === 'complete') {
@@ -499,6 +500,7 @@ chrome.downloads.onChanged.addListener((downloadDelta) => {
     }
   }
 });
+}
 
 // Helper to initiate download with Chrome Downloads API
 async function initiateDirectDownload(url, filename) {
@@ -688,10 +690,11 @@ async function handleCheckAuthentication(sendResponse) {
 }
 
 // Error handling
-self.addEventListener('error', (event) => {
-  // Service worker error occurred
-});
-
-self.addEventListener('unhandledrejection', (event) => {
-  // Unhandled promise rejection occurred
-});
+if (typeof self !== 'undefined' && typeof self.addEventListener === 'function') {
+  self.addEventListener('error', (event) => {
+    // Service worker error occurred
+  });
+  self.addEventListener('unhandledrejection', (event) => {
+    // Unhandled promise rejection occurred
+  });
+}

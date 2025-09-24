@@ -8,8 +8,7 @@
     "cookies",
     "activeTab",
     "storage",
-    "scripting",
-    "tabs"
+    "scripting"
   ],
   "host_permissions": [
     "*://*.bandcamp.com/*",

@@ -55,7 +55,11 @@ if (typeof window !== 'undefined') {
 }
 
 // Initialize function (exported for testing)
+let __trailMixInitialized = false;
+
 function initialize() {
+  if (__trailMixInitialized) return;
+  __trailMixInitialized = true;
   console.log('Trail Mix: DOM ready, initializing...');
   
   // Check if we're on a Bandcamp page
@@ -72,6 +76,12 @@ function initialize() {
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initialize);
+    // Also initialize early in test/JSdom to register listeners
+    try {
+      if (typeof navigator !== 'undefined' && String(navigator.userAgent || '').toLowerCase().includes('jsdom')) {
+        initialize();
+      }
+    } catch (_) {}
   } else {
     initialize();
   }

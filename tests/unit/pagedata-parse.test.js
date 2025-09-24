@@ -84,8 +84,10 @@ describe('Content Script: SCRAPE_PURCHASES pagedata parsing', () => {
     const keepAlive = messageHandler({ type: 'SCRAPE_PURCHASES' }, { tab: { id: 1 } }, sendResponse);
     expect(keepAlive).toBe(true);
 
-    // Allow async work
-    await Promise.resolve();
+    // Wait for asynchronous sendResponse to be called
+    for (let i = 0; i < 10 && sendResponse.mock.calls.length === 0; i++) {
+      await new Promise(r => setTimeout(r, 0));
+    }
 
     // Validate response shape
     const resp = sendResponse.mock.calls[0][0];
@@ -96,4 +98,3 @@ describe('Content Script: SCRAPE_PURCHASES pagedata parsing', () => {
     expect(resp.purchases[0].downloadUrl).toMatch(/^https:\/\/bandcamp\.com\/download\?/);
   });
 });
-

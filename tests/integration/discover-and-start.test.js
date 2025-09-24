@@ -67,12 +67,13 @@ describe('Integration: DISCOVER_AND_START', () => {
     const keepAlive = messageHandler({ type: 'DISCOVER_AND_START' }, { tab: { id: 999 } }, sendResponse);
     expect(keepAlive).toBe(true);
 
-    // Allow async handlers to run
-    await Promise.resolve();
+    // Wait until tabs.create has been called up to concurrency limit
+    for (let i = 0; i < 20 && chrome.tabs.create.mock.calls.length < 3; i++) {
+      await new Promise(r => setTimeout(r, 0));
+    }
 
     // processNextDownload should start up to 3 tabs initially
     expect(chrome.tabs.create).toHaveBeenCalledTimes(3);
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ status: 'started', totalPurchases: 4 }));
   });
 });
-
