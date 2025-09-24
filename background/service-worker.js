@@ -68,6 +68,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleDiscoverPurchases(sendResponse);
       return true;
 
+    case 'DISCOVER_AND_START':
+      handleDiscoverAndStart(sendResponse);
+      return true;
+
     case 'DOWNLOAD_ALBUM':
       handleDownloadAlbum(message.data, sendResponse);
       return true;
@@ -231,6 +235,40 @@ async function discoverPurchases() {
   } catch (error) {
     console.error('Error discovering purchases:', error);
     return { success: false, error: error.message };
+  }
+}
+
+// Discover and immediately start downloads (single-step flow)
+async function handleDiscoverAndStart(sendResponse) {
+  try {
+    const discoveryResponse = await discoverPurchases();
+    if (!discoveryResponse || !discoveryResponse.success) {
+      sendResponse({ status: 'failed', error: discoveryResponse?.error || 'Discovery failed' });
+      return;
+    }
+
+    // Seed state similar to handleStartDownload
+    downloadState.purchases = Array.isArray(discoveryResponse.purchases) ? discoveryResponse.purchases : [];
+    downloadState.isActive = true;
+    downloadState.isPaused = false;
+    downloadState.currentIndex = 0;
+    downloadState.completed = 0;
+    downloadState.failed = 0;
+
+    try {
+      const total = downloadState.purchases.length;
+      const withDirectUrl = downloadState.purchases.filter(p => p && typeof p.downloadUrl === 'string' && p.downloadUrl.startsWith('http')).length;
+      const withoutDirectUrl = total - withDirectUrl;
+      console.log(`[TrailMix] DISCOVER_AND_START: total=${total}, with downloadUrl=${withDirectUrl}, without=${withoutDirectUrl}`);
+    } catch (_) {}
+
+    // Kick off downloads
+    await processNextDownload();
+
+    sendResponse({ status: 'started', totalPurchases: downloadState.purchases.length });
+  } catch (error) {
+    console.error('Error in DISCOVER_AND_START:', error);
+    sendResponse({ status: 'failed', error: error.message });
   }
 }
 
