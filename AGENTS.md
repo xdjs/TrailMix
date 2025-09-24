@@ -228,3 +228,59 @@ This approach demonstrates that AI can be a powerful partner in software develop
 **AI Assistant**: Claude (Anthropic)  
 **Development Model**: Human-AI Collaborative Programming  
 **Status**: Phase 1 Complete, Ready for Phase 2
+
+## Repository Analysis (Codex CLI)
+
+This section documents the current Trail Mix codebase structure, behavior, and practical next steps.
+
+### Architecture
+- **Manifest V3**: `manifest.json` wires a background service worker, a content script for `*.bandcamp.com/*`, and the popup UI.
+- **Three tiers**:
+  - `background/`: lifecycle orchestration, authentication checks, purchase discovery, and download coordination.
+  - `content/`: page scraping and in-page, cookie-attached network requests.
+  - `popup/`: user interface for auth state, controls, and progress.
+- **Core libraries**: `lib/utils.js` (logging, errors, async, path, validation) and `lib/auth-manager.js` (cookie + API-based auth). Download/metadata managers are placeholders for later phases.
+
+### Key Components
+- `background/service-worker.js`
+  - Initializes defaults in `chrome.storage.local` on install.
+  - Message router: `GET_EXTENSION_STATUS`, `CHECK_AUTHENTICATION`, `DISCOVER_PURCHASES`, `START_DOWNLOAD`, `PAUSE_DOWNLOAD`, `STOP_DOWNLOAD`, `DOWNLOAD_ALBUM`.
+  - Discovery flow: ensures an active Bandcamp tab → asks content script for purchases URL → navigates → requests page scraping → receives purchases array.
+  - Download flow: configurable concurrency of parallel downloads; opens hidden tabs for direct `downloadUrl` when available, with tab monitoring; falls back to album-page link discovery. Broadcasts progress via `DOWNLOAD_PROGRESS` and listens to `chrome.downloads.onChanged` for extra signals.
+- `content/bandcamp-scraper.js`
+  - Handlers: `NAVIGATE_TO_PURCHASES`, `SCRAPE_PURCHASES`, `GET_DOWNLOAD_LINK`, `CHECK_AUTH_STATUS`, `MONITOR_DOWNLOAD_PAGE`, and `makeAuthenticatedRequest` (fetch with `credentials: 'include'`).
+  - Scraping: prefers JSON `#pagedata` blob on purchases pages; otherwise uses resilient DOM queries on collection pages. Extracts title, artist, url, artwork, type, and optional `downloadUrl`.
+  - Utilities: `DOMUtils` with `waitForElement`, safe text/attribute access.
+- `popup/` (HTML/CSS/JS)
+  - Initializes UI, loads settings, checks auth, triggers discovery + downloads, and renders `DOWNLOAD_PROGRESS` updates.
+- `lib/utils.js`
+  - `Logger`, `ErrorHandler`, `StringUtils`, `PathUtils`, `AsyncUtils`, `ValidationUtils` — exported for browser/SW and Node.
+- `lib/auth-manager.js`
+  - Caches auth state; checks Bandcamp cookies; validates via an authenticated content-script request to `https://bandcamp.com/api/fan/2/collection_summary`. Exports class + singleton.
+
+### Data & Message Flow
+- Popup → Background: `GET_EXTENSION_STATUS`, `CHECK_AUTHENTICATION`, `DISCOVER_PURCHASES`, `START_DOWNLOAD`, `PAUSE/STOP_DOWNLOAD`.
+- Background → Content: `NAVIGATE_TO_PURCHASES`, `SCRAPE_PURCHASES`, `GET_DOWNLOAD_LINK`, `MONITOR_DOWNLOAD_PAGE`.
+- Background → Popup: `DOWNLOAD_PROGRESS` with totals, completed/failed, active count, and current item text.
+
+### Permissions & Security
+- Permissions: `downloads`, `cookies`, `activeTab`, `storage`, `scripting`, `tabs`; host permissions for Bandcamp only.
+- CSP: restricted on extension pages. Background avoids direct fetch; proxies via content script for cookie-attached requests.
+
+### Testing & Tooling
+- Jest + JSDOM with thresholds (85% lines/branches/functions/statements) configured in `jest.config.js`.
+- Chrome APIs mocked in `tests/setup.js` and `tests/mocks/chrome-mock.js`.
+- Unit coverage for manifest, project structure, popup, content script, service worker, utils, and auth manager.
+- `npm test` plus scoped scripts. Build/dev scripts are placeholders pending bundling needs.
+
+### Notable Design Choices
+- Robust scraping: JSON blob first, then multiple selector fallbacks; works for purchases and collection pages.
+- Parallel downloads: concurrency-controlled, tab-monitored, with a direct Downloads API helper.
+- Dual auth logic: background cookie inspection and `lib/auth-manager.js` content-script API validation — candidates for consolidation.
+
+### Gaps & Recommendations
+- **Auth unification**: Route `CHECK_AUTHENTICATION` through `lib/auth-manager.js` for a single source of truth; background can delegate its enhanced cookie analysis to the manager.
+- **Selector validity**: Replace unsupported CSS selectors (e.g., `:contains`) referenced in comments or fallbacks with valid patterns and/or text filtering.
+- **Phase work**: Implement `lib/download-manager.js` (queue/retry/rate-limit/resume) and `lib/metadata-handler.js` (ID3/artwork, safe filenames) per roadmap.
+- **Build pipeline**: Wire Babel/ESLint and optionally Vite/Rollup for packaging; keep CSP and MV3 constraints in mind.
+- **UX refinements**: Expose concurrency in UI, add clearer in-progress and error states, and surface discovered purchase counts upfront.

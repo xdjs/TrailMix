@@ -212,6 +212,11 @@ async function discoverPurchases() {
     // Now scrape purchases from the collection page
     const scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
 
+    // TEST: Open a new tab after scraping
+    console.log('TEST: Opening new tab after scraping purchases...');
+    await chrome.tabs.create({ url: 'https://www.google.com', active: false });
+    console.log('TEST: New tab created');
+
     return scrapeResponse;
   } catch (error) {
     console.error('Error discovering purchases:', error);
