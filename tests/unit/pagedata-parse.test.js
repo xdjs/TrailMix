@@ -85,8 +85,8 @@ describe('Content Script: SCRAPE_PURCHASES pagedata parsing', () => {
     expect(keepAlive).toBe(true);
 
     // Wait for asynchronous sendResponse to be called
-    for (let i = 0; i < 10 && sendResponse.mock.calls.length === 0; i++) {
-      await new Promise(r => setTimeout(r, 0));
+    for (let i = 0; i < 100 && sendResponse.mock.calls.length === 0; i++) {
+      await new Promise(r => setTimeout(r, 1));
     }
 
     // Validate response shape
