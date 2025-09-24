@@ -41,6 +41,7 @@ async function initializeExtension() {
 
 // Message handling between components
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('Service worker received message:', message.type, message);
 
   switch (message.type) {
     case 'GET_EXTENSION_STATUS':
@@ -122,7 +123,19 @@ async function handleStartDownload(data, sendResponse) {
     downloadState.completed = 0;
     downloadState.failed = 0;
 
-    console.log('Download state initialized:', downloadState);
+    // Diagnostics summary
+    try {
+      const total = Array.isArray(downloadState.purchases) ? downloadState.purchases.length : 0;
+      const withDirectUrl = downloadState.purchases.filter(p => p && typeof p.downloadUrl === 'string' && p.downloadUrl.startsWith('http')).length;
+      const withoutDirectUrl = total - withDirectUrl;
+      console.log(`[TrailMix] Purchases summary: total=${total}, with downloadUrl=${withDirectUrl}, without=${withoutDirectUrl}`);
+    } catch (_) {}
+
+    console.log('Download state initialized:', {
+      isActive: downloadState.isActive,
+      total: downloadState.purchases.length,
+      currentIndex: downloadState.currentIndex
+    });
     console.log('About to call processNextDownload()...');
 
     // Start downloading
@@ -150,8 +163,10 @@ function handleStopDownload(sendResponse) {
 async function handleDiscoverPurchases(sendResponse) {
   try {
     const response = await discoverPurchases();
+    console.log('Sending discovery response:', response);
     sendResponse(response);
   } catch (error) {
+    console.error('Error in handleDiscoverPurchases:', error);
     sendResponse({ success: false, error: error.message });
   }
 }
@@ -165,11 +180,11 @@ async function discoverPurchases() {
 
     if (tabs.length > 0) {
       tab = tabs[0];
-      // Make sure the tab is active
-      await chrome.tabs.update(tab.id, { active: true });
+      // Keep popup open: do not activate tab
+      await chrome.tabs.update(tab.id, { active: false });
     } else {
-      // Create a new tab with Bandcamp
-      tab = await chrome.tabs.create({ url: 'https://bandcamp.com', active: true });
+      // Create a new background tab with Bandcamp
+      tab = await chrome.tabs.create({ url: 'https://bandcamp.com', active: false });
       // Wait for it to load
       await new Promise(resolve => setTimeout(resolve, 3000));
     }
@@ -188,7 +203,7 @@ async function discoverPurchases() {
         if (navResponse.success && navResponse.purchasesUrl) {
           // Navigate to the purchases URL
           console.log('Navigating to purchases URL:', navResponse.purchasesUrl);
-          await chrome.tabs.update(tab.id, { url: navResponse.purchasesUrl });
+          await chrome.tabs.update(tab.id, { url: navResponse.purchasesUrl, active: false });
 
           // Wait for navigation to complete
           await new Promise(resolve => setTimeout(resolve, 3000));
@@ -211,11 +226,6 @@ async function discoverPurchases() {
 
     // Now scrape purchases from the collection page
     const scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
-
-    // TEST: Open a new tab after scraping
-    console.log('TEST: Opening new tab after scraping purchases...');
-    await chrome.tabs.create({ url: 'https://www.google.com', active: false });
-    console.log('TEST: New tab created');
 
     return scrapeResponse;
   } catch (error) {
@@ -247,9 +257,10 @@ async function processNextDownload() {
     downloadState.currentIndex++;
 
     console.log('Starting download', downloadState.currentIndex, 'of', downloadState.purchases.length);
+    console.log('Purchase to download:', purchase);
 
     // Start download in parallel
-    startParallelDownload(purchase);
+    await startParallelDownload(purchase);
   }
 
   // Check if all downloads are complete
@@ -268,10 +279,30 @@ async function startParallelDownload(purchase) {
     // If we already have the download URL, use it directly
     if (purchase.downloadUrl) {
       // Create a new tab for this download
-      const tab = await chrome.tabs.create({
-        url: purchase.downloadUrl,
-        active: false  // Don't switch to the tab
-      });
+      let tab;
+      try {
+        tab = await chrome.tabs.create({
+          url: String(purchase.downloadUrl),
+          active: false // Don't switch to the tab
+        });
+      } catch (e) {
+        console.error('tabs.create threw error for URL:', purchase.downloadUrl, e);
+      }
+
+      if (!tab || typeof tab.id !== 'number') {
+        console.warn('Failed to create tab, attempting direct download via Downloads API...', purchase.title);
+        const downloadId = await initiateDirectDownload(purchase.downloadUrl, undefined);
+        if (downloadId !== null) {
+          // Count this as an active download without a tab
+          downloadState.completed++;
+          broadcastProgress();
+          // Try next item
+          processNextDownload();
+          return;
+        } else {
+          throw new Error('Could not create tab or start direct download');
+        }
+      }
 
       console.log('Created tab', tab.id, 'for', purchase.title);
 
@@ -623,4 +654,3 @@ self.addEventListener('error', (event) => {
 self.addEventListener('unhandledrejection', (event) => {
   // Unhandled promise rejection occurred
 });
-

@@ -390,16 +390,38 @@ async function handleScrapePurchases(sendResponse) {
 
     // Try to extract data from pagedata blob first (purchases page)
     if (isPurchasesPage) {
+      try {
+        // Ensure pagedata is available (wait up to 10s)
+        await DOMUtils.waitForElement('#pagedata', 10000);
+      } catch (_) {
+        console.log('Pagedata not found within timeout, falling back to DOM scraping');
+      }
+
       const pageDataElement = document.getElementById('pagedata');
       if (pageDataElement) {
         try {
-          const pageData = JSON.parse(pageDataElement.getAttribute('data-blob'));
-          if (pageData && pageData.orderhistory && pageData.orderhistory.items) {
+          const raw = pageDataElement.getAttribute('data-blob');
+          const pageData = JSON.parse(raw);
+          if (pageData && pageData.orderhistory && Array.isArray(pageData.orderhistory.items)) {
+            const allItems = pageData.orderhistory.items;
             const purchases = [];
 
-            for (const item of pageData.orderhistory.items) {
-              // Skip items without download URLs (subscriptions, etc.)
+            const decodeHtml = (str) => {
+              if (!str) return str;
+              const el = document.createElement('textarea');
+              el.innerHTML = str;
+              return el.value;
+            };
+            const toAbsolute = (href) => {
+              try { return new URL(href, window.location.origin).href; } catch (_) { return href; }
+            };
+
+            for (const item of allItems) {
+              // Only process items with a direct download URL (digital purchases)
               if (!item.download_url) continue;
+
+              const decoded = decodeHtml(item.download_url);
+              const absoluteUrl = toAbsolute(decoded);
 
               purchases.push({
                 title: item.item_title || 'Unknown Title',
@@ -408,16 +430,17 @@ async function handleScrapePurchases(sendResponse) {
                 artworkUrl: item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_2.jpg` : '',
                 purchaseDate: item.payment_date || '',
                 itemType: item.download_type === 't' ? 'track' : 'album',
-                downloadUrl: item.download_url.replace(/&amp;/g, '&') // Decode HTML entities
+                downloadUrl: absoluteUrl
               });
             }
 
-            console.log(`Successfully scraped ${purchases.length} purchases from pagedata`);
+            console.log(`Successfully scraped ${purchases.length} downloadable purchases from pagedata (items=${allItems.length})`);
 
             sendResponse({
               success: true,
               purchases,
-              totalCount: purchases.length
+              totalCount: purchases.length,
+              totals: { items: allItems.length, downloadable: purchases.length }
             });
             return;
           }
@@ -750,4 +773,3 @@ async function handleMonitorDownloadPage(sendResponse) {
 }
 
 console.log('Trail Mix content script fully initialized');
-

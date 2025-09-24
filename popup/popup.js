@@ -126,9 +126,11 @@ async function handleStartDownload() {
 
     // First, discover purchases
     const discoveryResponse = await sendMessageToBackground({ type: 'DISCOVER_PURCHASES' });
+    console.log('Discovery response:', discoveryResponse);
 
-    if (!discoveryResponse.success) {
-      addLogEntry('Failed to discover purchases: ' + (discoveryResponse.error || 'Unknown error'), 'error');
+    if (!discoveryResponse || !discoveryResponse.success) {
+      addLogEntry('Failed to discover purchases: ' + (discoveryResponse?.error || 'Unknown error'), 'error');
+      console.error('Discovery failed, response:', discoveryResponse);
       return;
     }
 
@@ -141,9 +143,11 @@ async function handleStartDownload() {
     }
 
     // Show first few purchases
-    if (discoveryResponse.purchases) {
+    if (discoveryResponse.purchases && Array.isArray(discoveryResponse.purchases)) {
       discoveryResponse.purchases.slice(0, 3).forEach(purchase => {
-        addLogEntry(`  • ${purchase.title} by ${purchase.artist}`);
+        if (purchase && purchase.title && purchase.artist) {
+          addLogEntry(`  • ${purchase.title} by ${purchase.artist}`);
+        }
       });
       if (purchaseCount > 3) {
         addLogEntry(`  ... and ${purchaseCount - 3} more`);
@@ -151,12 +155,15 @@ async function handleStartDownload() {
     }
 
     addLogEntry('Starting download process...');
+    console.log('Sending START_DOWNLOAD with purchases:', discoveryResponse.purchases);
+
     const response = await sendMessageToBackground({
       type: 'START_DOWNLOAD',
       purchases: discoveryResponse.purchases
     });
+    console.log('START_DOWNLOAD response:', response);
 
-    if (response.status === 'started') {
+    if (response && response.status === 'started') {
       elements.progressSection.style.display = 'block';
       elements.startBtn.style.display = 'none';
       elements.pauseBtn.style.display = 'inline-block';
@@ -164,10 +171,14 @@ async function handleStartDownload() {
 
       elements.progressStats.textContent = `0 of ${response.totalPurchases || 0} albums`;
       addLogEntry('Download started', 'success');
-    } else if (response.status === 'failed') {
+    } else if (response && response.status === 'failed') {
       addLogEntry('Failed to start download: ' + (response.error || 'Unknown error'), 'error');
+    } else {
+      addLogEntry('No response from download handler', 'error');
+      console.error('Invalid or missing response:', response);
     }
   } catch (error) {
+    console.error('Error in handleStartDownload:', error);
     addLogEntry('Failed to start download: ' + error.message, 'error');
   }
 }
@@ -259,8 +270,11 @@ function handleClearLog() {
 // Utility functions
 function sendMessageToBackground(message) {
   return new Promise((resolve, reject) => {
+    console.log('Sending message to background:', message);
     chrome.runtime.sendMessage(message, (response) => {
+      console.log('Received response:', response);
       if (chrome.runtime.lastError) {
+        console.error('Chrome runtime error:', chrome.runtime.lastError);
         reject(chrome.runtime.lastError);
       } else {
         resolve(response);
