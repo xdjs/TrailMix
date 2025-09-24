@@ -196,8 +196,14 @@ async function discoverPurchases() {
       await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
+    // Refresh tab info to ensure URL is populated
+    try {
+      const refreshed = await chrome.tabs.get(tab.id);
+      if (refreshed) tab = refreshed;
+    } catch (_) {}
+
     // Check if we're already on the purchases page
-    const isOnPurchases = tab.url.includes('/purchases');
+    const isOnPurchases = !!(tab && tab.url && tab.url.includes('/purchases'));
 
     if (!isOnPurchases) {
       try {
