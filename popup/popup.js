@@ -122,46 +122,48 @@ function updateAuthStatus(status, message) {
 // Event handlers
 async function handleStartDownload() {
   try {
-    addLogEntry('Discovering purchases...');
+    addLogEntry('Discovering purchases and starting downloads...');
 
-    // First, discover purchases
-    const discoveryResponse = await sendMessageToBackground({ type: 'DISCOVER_PURCHASES' });
-    console.log('Discovery response:', discoveryResponse);
+    // Preferred: single-step flow handled entirely by background
+    let response = await sendMessageToBackground({ type: 'DISCOVER_AND_START' });
+    console.log('DISCOVER_AND_START response:', response);
 
-    if (!discoveryResponse || !discoveryResponse.success) {
-      addLogEntry('Failed to discover purchases: ' + (discoveryResponse?.error || 'Unknown error'), 'error');
-      console.error('Discovery failed, response:', discoveryResponse);
-      return;
-    }
+    // Fallback to legacy two-step flow if needed
+    if (!response || response.status !== 'started') {
+      console.warn('DISCOVER_AND_START failed or unsupported, falling back to two-step flow');
+      addLogEntry('Falling back to legacy start flow', 'warning');
 
-    const purchaseCount = discoveryResponse.purchases ? discoveryResponse.purchases.length : 0;
-    addLogEntry(`Found ${purchaseCount} purchases`);
+      const discoveryResponse = await sendMessageToBackground({ type: 'DISCOVER_PURCHASES' });
+      console.log('Discovery response:', discoveryResponse);
 
-    if (purchaseCount === 0) {
-      addLogEntry('No purchases found to download', 'warning');
-      return;
-    }
-
-    // Show first few purchases
-    if (discoveryResponse.purchases && Array.isArray(discoveryResponse.purchases)) {
-      discoveryResponse.purchases.slice(0, 3).forEach(purchase => {
-        if (purchase && purchase.title && purchase.artist) {
-          addLogEntry(`  • ${purchase.title} by ${purchase.artist}`);
-        }
-      });
-      if (purchaseCount > 3) {
-        addLogEntry(`  ... and ${purchaseCount - 3} more`);
+      if (!discoveryResponse || !discoveryResponse.success) {
+        addLogEntry('Failed to discover purchases: ' + (discoveryResponse?.error || 'Unknown error'), 'error');
+        console.error('Discovery failed, response:', discoveryResponse);
+        return;
       }
+
+      const purchaseCount = discoveryResponse.purchases ? discoveryResponse.purchases.length : 0;
+      addLogEntry(`Found ${purchaseCount} purchases`);
+      if (purchaseCount === 0) return;
+
+      if (discoveryResponse.purchases && Array.isArray(discoveryResponse.purchases)) {
+        discoveryResponse.purchases.slice(0, 3).forEach(purchase => {
+          if (purchase && purchase.title && purchase.artist) {
+            addLogEntry(`  • ${purchase.title} by ${purchase.artist}`);
+          }
+        });
+        if (purchaseCount > 3) {
+          addLogEntry(`  ... and ${purchaseCount - 3} more`);
+        }
+      }
+
+      addLogEntry('Starting download process...');
+      response = await sendMessageToBackground({
+        type: 'START_DOWNLOAD',
+        purchases: discoveryResponse.purchases
+      });
+      console.log('START_DOWNLOAD response:', response);
     }
-
-    addLogEntry('Starting download process...');
-    console.log('Sending START_DOWNLOAD with purchases:', discoveryResponse.purchases);
-
-    const response = await sendMessageToBackground({
-      type: 'START_DOWNLOAD',
-      purchases: discoveryResponse.purchases
-    });
-    console.log('START_DOWNLOAD response:', response);
 
     if (response && response.status === 'started') {
       elements.progressSection.style.display = 'block';
@@ -322,4 +324,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     updateProgress(message.progress);
   }
 });
-
