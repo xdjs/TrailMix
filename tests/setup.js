@@ -124,6 +124,14 @@ beforeEach(() => {
   global.window = dom.window;
   global.document = dom.window.document;
   global.navigator = dom.window.navigator;
+
+  // Ensure a stable self with mocked dispatchEvent to avoid jsdom EventTarget constraints
+  if (!global.self || typeof global.self.dispatchEvent !== 'function') {
+    global.self = {
+      addEventListener: jest.fn(),
+      dispatchEvent: jest.fn()
+    };
+  }
 });
 
 // Clean up after each test
