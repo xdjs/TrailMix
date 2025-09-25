@@ -4,6 +4,8 @@
  */
 
 // Service worker runs independently - no external imports needed
+// Import DownloadManager for single download functionality
+importScripts('../lib/download-manager.js');
 
 // Extension lifecycle management
 chrome.runtime.onInstalled.addListener((details) => {
@@ -76,6 +78,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleDownloadAlbum(message.data, sendResponse);
       return true;
 
+    case 'DOWNLOAD_SINGLE':
+      handleDownloadSingle(message.data, sendResponse);
+      return true;
+
     default:
       sendResponse({ error: 'Unknown message type' });
   }
@@ -109,6 +115,9 @@ let downloadState = {
 
 // Process reentrancy guard
 let isProcessing = false;
+
+// Global download manager instance for sequential processing
+let globalDownloadManager = null;
 
 // Download handlers
 async function handleStartDownload(data, sendResponse) {
@@ -285,7 +294,7 @@ async function handleDiscoverAndStart(sendResponse) {
   }
 }
 
-// Process downloads with parallel management
+// Process downloads sequentially using DownloadManager
 async function processNextDownload() {
   console.log('processNextDownload called. Active:', downloadState.isActive, 'Paused:', downloadState.isPaused);
   console.log('Current index:', downloadState.currentIndex, 'Total purchases:', downloadState.purchases.length);
@@ -294,43 +303,74 @@ async function processNextDownload() {
     return;
   }
 
-  // Get configured max concurrent downloads
-  const settings = await chrome.storage.local.get(['maxConcurrentDownloads']);
-  let maxConcurrent = settings.maxConcurrentDownloads;
-  if (typeof maxConcurrent !== 'number' || isNaN(maxConcurrent)) maxConcurrent = 3;
-  // Clamp to [1, 10]
-  maxConcurrent = Math.max(1, Math.min(10, maxConcurrent));
-
-  console.log('Max concurrent:', maxConcurrent, 'Active downloads:', downloadState.activeDownloads.size);
-
-  // Check if we can start more downloads
   // Prevent reentrancy
   if (isProcessing) return;
   isProcessing = true;
 
-  while ((downloadState.activeDownloads.size + downloadState.downloadIds.size) < maxConcurrent &&
-         downloadState.currentIndex < downloadState.purchases.length) {
+  try {
+    // Check if we have more items to download
+    if (downloadState.currentIndex < downloadState.purchases.length) {
+      const purchase = downloadState.purchases[downloadState.currentIndex];
+      downloadState.currentIndex++;
 
-    const purchase = downloadState.purchases[downloadState.currentIndex];
-    downloadState.currentIndex++;
+      console.log(`Starting download ${downloadState.currentIndex} of ${downloadState.purchases.length}: ${purchase.title}`);
 
-    console.log('Starting download', downloadState.currentIndex, 'of', downloadState.purchases.length);
-    console.log('Purchase to download:', purchase);
+      // Create download manager if not exists
+      if (!globalDownloadManager) {
+        globalDownloadManager = new DownloadManager();
 
-    // Start download in parallel
-    await startParallelDownload(purchase);
+        // Set up progress callback
+        globalDownloadManager.onProgress = (progress) => {
+          console.log(`Download progress: ${progress.percentComplete}%`);
+          broadcastProgress();
+        };
+      }
+
+      try {
+        // Ensure we have a download URL before delegating to the download manager
+        const downloadUrl = await resolveDownloadUrlForPurchase(purchase);
+        if (downloadUrl) {
+          purchase.downloadUrl = downloadUrl;
+        }
+
+        // Download using DownloadManager (sequential - one at a time)
+        await globalDownloadManager.download(purchase);
+
+        // Success
+        downloadState.completed++;
+        console.log(`Download completed: ${purchase.title} (${downloadState.completed}/${downloadState.purchases.length})`);
+
+      } catch (error) {
+        // Failed
+        downloadState.failed++;
+        console.error(`Download failed for ${purchase.title}:`, error);
+      }
+
+      // Broadcast progress
+      broadcastProgress();
+
+      // Process next item after a short delay
+      setTimeout(() => {
+        isProcessing = false;
+        processNextDownload();
+      }, 1000);
+
+    } else {
+      // All downloads complete
+      downloadState.isActive = false;
+      console.log(`All downloads complete: ${downloadState.completed} successful, ${downloadState.failed} failed`);
+      broadcastProgress();
+      isProcessing = false;
+    }
+  } catch (error) {
+    console.error('Error in processNextDownload:', error);
+    isProcessing = false;
   }
-
-  // Check if all downloads are complete
-  if (downloadState.activeDownloads.size === 0 &&
-      downloadState.downloadIds.size === 0 &&
-      downloadState.currentIndex >= downloadState.purchases.length) {
-    downloadState.isActive = false;
-    console.log(`Downloads complete: ${downloadState.completed} successful, ${downloadState.failed} failed`);
-  }
-  isProcessing = false;
 }
 
+// DEPRECATED: Old parallel download code - replaced by DownloadManager
+// Keeping for reference but no longer used
+/*
 // Start a download in parallel
 async function startParallelDownload(purchase) {
   try {
@@ -408,7 +448,10 @@ async function startParallelDownload(purchase) {
     processNextDownload();
   }
 }
+*/
 
+// DEPRECATED: Old tab monitoring code - no longer needed with DownloadManager
+/*
 // Event-based monitoring of download tabs
 if (chrome.tabs && chrome.tabs.onUpdated && typeof chrome.tabs.onUpdated.addListener === 'function') {
   chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
@@ -456,6 +499,7 @@ function handleDownloadComplete(tabId, purchase) {
     processNextDownload();
   }, 1000); // Small delay between starting next download
 }
+*/
 
 // Broadcast progress to popup
 function broadcastProgress() {
@@ -463,7 +507,7 @@ function broadcastProgress() {
     total: downloadState.purchases.length,
     completed: downloadState.completed,
     failed: downloadState.failed,
-    active: downloadState.activeDownloads.size + downloadState.downloadIds.size,
+    active: globalDownloadManager && globalDownloadManager.activeDownload ? 1 : 0,
     isActive: downloadState.isActive,
     isPaused: downloadState.isPaused
   };
@@ -477,6 +521,8 @@ function broadcastProgress() {
   });
 }
 
+// DEPRECATED: Chrome download events are now handled by DownloadManager
+/*
 // Listen for Chrome download events
 if (chrome.downloads && chrome.downloads.onChanged && typeof chrome.downloads.onChanged.addListener === 'function') {
   chrome.downloads.onChanged.addListener((downloadDelta) => {
@@ -508,7 +554,10 @@ if (chrome.downloads && chrome.downloads.onChanged && typeof chrome.downloads.on
     }
   });
 }
+*/
 
+// DEPRECATED: Direct download helper - now handled by DownloadManager
+/*
 // Helper to initiate download with Chrome Downloads API
 async function initiateDirectDownload(url, filename) {
   try {
@@ -525,36 +574,161 @@ async function initiateDirectDownload(url, filename) {
     return null;
   }
 }
+*/
+
+// Download single item using DownloadManager (Phase 4)
+async function handleDownloadSingle(data, sendResponse) {
+  try {
+    // Create a new DownloadManager instance
+    const downloadManager = new DownloadManager();
+
+    // Set up progress callback
+    downloadManager.onProgress = (progress) => {
+      console.log(`Download progress: ${progress.percentComplete}%`);
+      // Send progress to popup
+      chrome.runtime.sendMessage({
+        type: 'DOWNLOAD_PROGRESS_SINGLE',
+        progress: progress
+      }).catch(() => {});
+    };
+
+    // Get the purchase item from data
+    const purchaseItem = data && data.purchaseItem;
+    if (!purchaseItem || !purchaseItem.downloadUrl) {
+      sendResponse({ success: false, error: 'No purchase item provided' });
+      return;
+    }
+
+    console.log(`Starting single download for: ${purchaseItem.title}`);
+
+    // Start the download
+    const result = await downloadManager.download(purchaseItem);
+
+    console.log(`Download completed for: ${purchaseItem.title}`);
+    sendResponse({ success: true, result });
+
+  } catch (error) {
+    console.error('Single download failed:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// Resolve the download URL for a purchase, fetching it from the album page if necessary
+async function resolveDownloadUrlForPurchase(purchase) {
+  if (!purchase) {
+    throw new Error('No purchase provided for download');
+  }
+
+  if (purchase.downloadUrl) {
+    return purchase.downloadUrl;
+  }
+
+  if (!purchase.url) {
+    throw new Error(`Purchase ${purchase.title || ''} is missing an album URL`);
+  }
+
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
+  let tab = tabs[0];
+  let createdTabId = null;
+
+  if (!tab) {
+    // If we don't already have a Bandcamp tab, open one to the album page so the content script can resolve the link
+    tab = await chrome.tabs.create({ url: purchase.url, active: false });
+    createdTabId = tab.id;
+
+    // Wait for tab to complete loading instead of arbitrary timeout
+    await new Promise((resolve) => {
+      const checkTabStatus = (tabId, changeInfo) => {
+        if (tabId === createdTabId && changeInfo.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(checkTabStatus);
+          resolve();
+        }
+      };
+      chrome.tabs.onUpdated.addListener(checkTabStatus);
+
+      // Fallback timeout in case the tab never completes
+      setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(checkTabStatus);
+        resolve();
+      }, 5000);
+    });
+  }
+
+  const tabId = tab.id;
+  const maxAttempts = 5;
+  let lastError = null;
+
+  try {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let response;
+
+      try {
+        response = await chrome.tabs.sendMessage(tabId, {
+          type: 'GET_DOWNLOAD_LINK',
+          albumUrl: purchase.url
+        });
+      } catch (error) {
+        const message = (error && error.message) ? error.message : String(error);
+        lastError = message;
+
+        // If the content script isn't ready yet, retry a few times
+        if (message.includes('Receiving end does not exist') && attempt < maxAttempts - 1) {
+          await wait(1000);
+          continue;
+        }
+
+        break;
+      }
+
+      if (response?.navigating) {
+        await wait(2000);
+        continue;
+      }
+
+      if (response?.success && response.downloadUrl) {
+        purchase.downloadUrl = response.downloadUrl;
+        return response.downloadUrl;
+      }
+
+      if (response?.error) {
+        lastError = response.error;
+        break;
+      }
+
+      if (response?.success === false && response.isOwned) {
+        lastError = response.message || 'Download link not ready yet';
+        await wait(1500);
+        continue;
+      }
+
+      if (response?.message) {
+        lastError = response.message;
+      }
+
+      if (attempt < maxAttempts - 1) {
+        await wait(1500);
+      }
+    }
+  } finally {
+    if (createdTabId !== null) {
+      try {
+        await chrome.tabs.remove(createdTabId);
+      } catch (_) {
+        // Ignore failures closing the temporary tab
+      }
+    }
+  }
+
+  throw new Error(lastError || 'Download URL not available for purchase');
+}
 
 // Download a single album
 async function downloadAlbum(purchase) {
   try {
-    // Find or create a Bandcamp tab
-    const tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
-    let tab = tabs[0];
-
-    // Get download link from the album page
-    const linkResponse = await chrome.tabs.sendMessage(tab.id, {
-      type: 'GET_DOWNLOAD_LINK',
-      albumUrl: purchase.url
-    });
-
-    if (linkResponse.navigating) {
-      // Wait for navigation
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      // Try again after navigation
-      const retryResponse = await chrome.tabs.sendMessage(tab.id, {
-        type: 'GET_DOWNLOAD_LINK',
-        albumUrl: purchase.url
-      });
-
-      if (retryResponse.success && retryResponse.downloadUrl) {
-        await initiateDownload(retryResponse.downloadUrl, purchase);
-      }
-    } else if (linkResponse.success && linkResponse.downloadUrl) {
-      await initiateDownload(linkResponse.downloadUrl, purchase);
-    }
+    const downloadUrl = await resolveDownloadUrlForPurchase(purchase);
+    await initiateDownload(downloadUrl, purchase);
   } catch (error) {
     console.error('Error downloading album:', error);
     throw error;
