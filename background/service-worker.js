@@ -638,8 +638,22 @@ async function resolveDownloadUrlForPurchase(purchase) {
     tab = await chrome.tabs.create({ url: purchase.url, active: false });
     createdTabId = tab.id;
 
-    // Give the page a moment to load and the content script to attach
-    await wait(1500);
+    // Wait for tab to complete loading instead of arbitrary timeout
+    await new Promise((resolve) => {
+      const checkTabStatus = (tabId, changeInfo) => {
+        if (tabId === createdTabId && changeInfo.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(checkTabStatus);
+          resolve();
+        }
+      };
+      chrome.tabs.onUpdated.addListener(checkTabStatus);
+
+      // Fallback timeout in case the tab never completes
+      setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(checkTabStatus);
+        resolve();
+      }, 5000);
+    });
   }
 
   const tabId = tab.id;

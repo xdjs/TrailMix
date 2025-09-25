@@ -72,6 +72,7 @@ describe('DownloadManager', () => {
 
       // Cleanup
       downloadManager.cancel();
+      await expect(downloadPromise).rejects.toThrow('Download cancelled');
     });
 
     test('should monitor tab for download link readiness', async () => {
@@ -131,6 +132,7 @@ describe('DownloadManager', () => {
 
       // Cleanup
       downloadManager.cancel();
+      await expect(downloadPromise).rejects.toThrow('Download cancelled');
     });
 
     test('should initiate download using Chrome Downloads API', async () => {
@@ -166,6 +168,7 @@ describe('DownloadManager', () => {
 
       // Cleanup
       downloadManager.cancel();
+      await expect(downloadPromise).rejects.toThrow('Download cancelled');
     });
 
     test('should close tab after initiating download', async () => {
@@ -194,6 +197,7 @@ describe('DownloadManager', () => {
 
       // Cleanup
       downloadManager.cancel();
+      await expect(downloadPromise).rejects.toThrow('Download cancelled');
     });
 
     test('should track download progress', async () => {
@@ -296,17 +300,17 @@ describe('DownloadManager', () => {
 
       const downloadPromise = downloadManager.download(mockPurchaseItem);
 
-      // Fast-forward time to trigger timeout
-      jest.advanceTimersByTime(31000); // 30 second timeout + buffer
-
-      // Process microtasks
-      await Promise.resolve();
+      // Fast-forward through all checks (15 checks * 2000ms = 30000ms)
+      for (let i = 0; i < 16; i++) {
+        jest.advanceTimersByTime(2000);
+        await Promise.resolve();
+      }
 
       // Should reject with timeout error
       await expect(downloadPromise).rejects.toThrow('Download preparation timeout');
 
       jest.useRealTimers();
-    }, 10000); // Increase test timeout
+    }, 15000); // Increase test timeout
   });
 
   describe('Acceptance Criteria', () => {
@@ -329,15 +333,23 @@ describe('DownloadManager', () => {
       const downloadPromise = downloadManager.download(mockPurchaseItem);
 
       // Wait for full download cycle
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Simulate download completion
+      downloadManager.handleDownloadChange({
+        id: mockDownloadId,
+        state: { current: 'complete' }
+      });
+
+      // Wait for promise to resolve
+      const result = await downloadPromise;
+      expect(result.success).toBe(true);
 
       // Verify complete flow
       expect(mockChrome.tabs.create).toHaveBeenCalled();
       expect(mockChrome.tabs.sendMessage).toHaveBeenCalled();
       expect(mockChrome.downloads.download).toHaveBeenCalled();
       expect(mockChrome.tabs.remove).toHaveBeenCalled();
-
-      downloadManager.cancel();
-    }, 10000);
+    }, 15000);
   });
 });
