@@ -1,21 +1,28 @@
 # Trail Mix - Implementation Plan
 
-## 🎉 Project Status: Phase 2 Task 2.1 Complete!
+## 🎉 Project Status: Phase 3 Complete — Moving to Phase 4
 
-**✅ PHASE 1 COMPLETED** - Chrome Extension Foundation  
-**🔄 PHASE 2 IN PROGRESS** - Authentication & Session Management  
-**📊 Progress**: Task 2.1 complete (1/6 Phase 2 tasks)  
-**🧪 Testing**: All unit tests passing with comprehensive error handling  
-**🚀 Status**: Authentication detection working correctly, ready for Task 2.2
+**✅ PHASE 1 COMPLETED** - Chrome Extension Foundation
+**✅ PHASE 2 SIMPLIFIED** - Basic Authentication (Login button opens Bandcamp login)
+**✅ PHASE 3 COMPLETED** - Purchase Discovery & Parallel Download Start
+**📊 Progress**: Discovery via pagedata + normalized download URLs; tabs spawn with configurable concurrency
+**🧪 Testing**: Manual runs confirm 3 concurrent tabs; diagnostics added in service worker
+**🚀 Status**: One-step kickoff (`DISCOVER_AND_START`) implemented; ready to evolve download manager (Phase 4)
 
 ### Recent Achievements:
-- ✅ **Task 2.1 Complete**: Session Detection with enhanced cookie validation
-- ✅ Advanced authentication detection that properly handles logged-out states
+- ✅ **Phase 1 Complete**: Full Chrome extension foundation
+- ✅ **Phase 2 Simplified**: Authentication detection works, login opens in new tab
+- ✅ Session detection properly identifies logged-in/logged-out states
 - ✅ Robust error handling for cookie API failures and network errors
 - ✅ Service worker message handling for authentication status checks
-- ✅ Comprehensive unit test coverage for all authentication scenarios
-- ✅ URL-encoded tracking cookie filtering to prevent false positives
-- ✅ Session state caching and management system
+
+### Strategic Decision:
+**Focusing on Core Functionality First** - Getting the essential flow working:
+1. Detect login state ✅
+2. Find user's purchases ✅ (Phase 3)
+3. Start parallel downloads via tabs ✅ (Phase 3)
+4. Build download manager + metadata (Phase 4/5 - Upcoming)
+5. Then circle back to polish UI and advanced features
 
 ### Phase 1 Foundation:
 - ✅ Complete Chrome extension structure implemented
@@ -26,7 +33,7 @@
 - ✅ Full testing infrastructure with Jest and Chrome API mocks
 - ✅ Git repository initialized with all code committed
 
-**🔄 Next**: Task 2.2 - Build Login Flow UI
+**🔄 Next**: Phase 4 Task 4.1 - Core Download Engine (download manager foundation)
 
 ---
 
@@ -300,13 +307,16 @@ tests/
 - [x] **AC1.5**: All required permissions are granted and functional
 - [x] **AC1.6**: Extension icon displays correctly in browser toolbar
 
-### Phase 2: Authentication & Session Management (Week 2)
+### Phase 2: Authentication & Session Management ✅ SIMPLIFIED
 
-**Duration**: 5 days  
-**Dependencies**: Phase 1 complete  
-**Deliverables**: Working authentication system with session management
+**Status**: Core authentication working - deferring advanced features for later version
+**Implementation**: Login button opens Bandcamp login page in new tab
+**Completed**:
+- ✅ Session detection using cookies
+- ✅ Login/logout state tracking
+- ✅ Basic login flow (opens Bandcamp login page)
 
-#### Task 2.1: Implement Session Detection (Day 1) ✅ COMPLETED
+#### Task 2.1: Implement Session Detection ✅ COMPLETED
 - [x] Create `lib/auth-manager.js` core functionality
 - [x] Implement cookie-based session validation:
   - [x] Read Bandcamp session cookies using Chrome cookies API
@@ -329,168 +339,148 @@ tests/
 - [x] **AC2.3**: Correctly identifies logged-out state (excludes URL-encoded tracking cookies)
 - [x] **AC2.4**: Handles authentication errors gracefully (cookie API failures, network errors, validation errors)
 
-#### Task 2.2: Build Login Flow UI (Day 2)
-- [ ] Design login prompt interface in popup:
-  - [ ] Username/email input field
-  - [ ] Password input field
-  - [ ] Login button
-  - [ ] Status messages area
-- [ ] Add login form styling
-- [ ] Implement form validation (required fields, format checking)
-- [ ] Create login state management in popup
-- [ ] Add loading indicators during login process
+#### Tasks 2.2-2.6: DEFERRED TO LATER VERSION
+**Rationale**: Basic authentication is working (login button opens Bandcamp login page).
+Advanced features like in-extension login forms, session monitoring, and state management
+will be implemented after core download functionality is proven.
 
-#### Task 2.3: Implement Login Process (Day 2-3)
-- [ ] Create login automation in content script:
-  - [ ] Navigate to Bandcamp login page
-  - [ ] Fill login form programmatically
-  - [ ] Submit login credentials
-  - [ ] Detect successful/failed login
-- [ ] Handle login response processing
-- [ ] Implement login error handling:
-  - [ ] Invalid credentials
-  - [ ] Network errors
-  - [ ] Captcha challenges
-- [ ] Add login success confirmation
+**What's Working Now**:
+- ✅ Cookie-based session detection
+- ✅ Login button that opens Bandcamp login
+- ✅ Automatic detection of login state changes
+- ✅ No credential storage (security requirement met)
 
-#### Task 2.4: Session Monitoring System (Day 3-4)
-- [ ] Implement session expiry detection:
-  - [ ] Monitor authentication status during operations
-  - [ ] Detect when session becomes invalid
-  - [ ] Trigger re-authentication prompts
-- [ ] Create session refresh mechanisms
-- [ ] Add session timeout handling
-- [ ] Implement graceful session expiry recovery
+### Phase 3: Purchase Discovery & Core Download ✅ COMPLETED
 
-#### Task 2.5: Authentication State Management (Day 4)
-- [ ] Create authentication state store:
-  - [ ] Track current login status
-  - [ ] Store session validation results
-  - [ ] Manage authentication events
-- [ ] Implement auth state synchronization between components
-- [ ] Add authentication event broadcasting
-- [ ] Create auth state persistence (session-based only)
+**Status**: Core functionality implemented with parallel download system
+**Focus**: Discover purchases and download with configurable parallel processing
+**Dependencies**: Basic authentication (✅ complete)
+**Deliverables**: Purchase discovery, parallel downloads, Chrome Downloads API integration
 
-#### Task 2.6: Authentication Testing (Day 5)
-- [ ] Test login flow with valid credentials
-- [ ] Test login flow with invalid credentials
-- [ ] Test session expiry scenarios
-- [ ] Test authentication across browser restarts
-- [ ] Validate no credential storage (per PRD requirement)
-- [ ] Create authentication test scenarios
+Additional outcome:
+- ✅ Single-step kickoff route `DISCOVER_AND_START` implemented in service worker
+- ✅ Popup updated to prefer `DISCOVER_AND_START` with legacy fallback
+- ✅ Tabs opened in background (inactive) to keep popup open during discovery
 
-**Unit Tests:**
-- [ ] Test session cookie parsing and validation
-- [ ] Test authentication state management
-- [ ] Test login form automation functions
-- [ ] Test session expiry detection logic
-- [ ] Test authentication event broadcasting
+#### Task 3.1: Purchases Page Navigation ✅ COMPLETED
+- [x] Implement purchases page navigation:
+  - [x] Extract username from Collection button href
+  - [x] Construct purchases URL: `https://bandcamp.com/{username}/purchases`
+  - [x] Navigate directly to purchases page (no UI clicking needed)
+- [x] Handle page detection:
+  - [x] Check if already on purchases page
+  - [x] Detect collection/purchases page variations
+  - [x] Add robust fallback methods
+- [x] Add DOM waiting and loading detection:
+  - [x] Wait for collection-grid elements to load
+  - [x] Handle multiple selector variations
+  - [x] 10-second timeout for slow connections
 
-**Acceptance Test:**
-- [ ] **AC2.6.1**: Valid credentials successfully authenticate user
-- [ ] **AC2.6.2**: Invalid credentials show appropriate error messages
-- [ ] **AC2.6.3**: Session expiry is detected and handled gracefully
-- [ ] **AC2.6.4**: No credentials are stored locally after logout
-- [ ] **AC2.6.5**: Authentication state persists during browser session
-- [ ] **AC2.6.6**: Re-authentication prompts appear when session expires
+#### Task 3.2: Album Discovery & Parsing ✅ COMPLETED
+- [x] Analyze Bandcamp purchases page DOM structure
+- [x] Create robust CSS selectors for album elements:
+  - [x] `ol.collection-grid li.collection-item-container`
+  - [x] Multiple fallback selectors for different layouts
+- [x] Implement album information extraction:
+  - [x] Album title extraction from `.collection-item-title`
+  - [x] Artist name extraction from `.collection-item-artist`
+  - [x] Purchase date extraction (if available)
+  - [x] Album URL extraction from item links
+  - [x] Thumbnail artwork URL extraction
+- [x] Add fallback selectors for DOM structure changes
+- [x] Create album data structure with download URLs
+- [x] Test with purchases page layout
 
-### Phase 3: Purchase Discovery & Scraping (Week 3)
+#### Task 3.3: Download Link Extraction ✅ COMPLETED
+**Note**: Download links are directly available on purchases page - no need to navigate to individual album pages!
+- [x] Extract download links from purchases page:
+  - [x] Find `a[href*="/download/album"]` and `a[href*="/download/track"]` links
+  - [x] Extract download URLs directly from purchase items
+  - [x] Store download URLs with purchase metadata
+- [x] Skip individual album page navigation (not needed)
+- [x] Implement parallel download architecture:
+  - [x] Configurable MAX_CONCURRENT_DOWNLOADS (default: 3)
+  - [x] Tab pool management for parallel downloads
+  - [x] Active download tracking with Map structure
 
-**Duration**: 5 days  
-**Dependencies**: Phase 2 complete (authentication working)  
-**Deliverables**: Complete purchase discovery and metadata extraction system
+#### Task 3.4: Download Page Processing ✅ COMPLETED
+- [x] Handle download page states:
+  - [x] Detect "Preparing" state on download pages
+  - [x] Monitor for download button appearance
+  - [x] Auto-click download button when ready
+  - [x] 30-second timeout for preparation
+- [x] Implement download monitoring:
+  - [x] Track tab states for completion
+  - [x] Detect download_complete or thank-you pages
+  - [x] Auto-close tabs after download starts
+- [x] Add Chrome Downloads API integration:
+  - [x] Listen for download state changes
+  - [x] Track completed downloads
+  - [x] Helper function for direct download initiation
 
-#### Task 3.1: Purchases Page Navigation (Day 1)
-- [ ] Implement purchases page navigation:
-  - [ ] Detect current page and navigate to purchases if needed
-  - [ ] Handle Bandcamp URL structure for purchases page
-  - [ ] Add robust page loading detection
-- [ ] Create pagination handling:
-  - [ ] Detect if pagination exists
-  - [ ] Implement page-by-page navigation
-  - [ ] Handle "Load More" buttons if present
-- [ ] Add DOM waiting and loading detection:
-  - [ ] Wait for dynamic content to load
-  - [ ] Detect when purchase list is fully loaded
-  - [ ] Handle slow network conditions
+#### Task 3.5: Parallel Download Management ✅ COMPLETED
+- [x] Create parallel download system:
+  - [x] Implement `startParallelDownload()` function
+  - [x] Track active downloads with Map structure
+  - [x] Queue management for pending downloads
+- [x] Add configurable concurrency:
+  - [x] `maxConcurrentDownloads` setting (default: 3)
+  - [x] Dynamic spawning of new downloads as others complete
+  - [x] Prevent overwhelming browser with too many tabs
+- [x] Implement progress tracking:
+  - [x] Real-time progress broadcasting to popup
+  - [x] Track completed, failed, and active counts
+  - [x] Display active download count in UI
 
-#### Task 3.2: Album Discovery & Parsing (Day 1-2)
-- [ ] Analyze Bandcamp purchases page DOM structure
-- [ ] Create robust CSS selectors for album elements
-- [ ] Implement album information extraction:
-  - [ ] Album title extraction
-  - [ ] Artist name extraction
-  - [ ] Purchase date extraction
-  - [ ] Album URL extraction
-  - [ ] Thumbnail artwork URL extraction
-- [ ] Add fallback selectors for DOM structure changes
-- [ ] Create album data structure/schema
-- [ ] Test with different purchase page layouts
+#### Task 3.6: Download Completion Handling ✅ COMPLETED
+- [x] Monitor download tabs:
+  - [x] Check for completion indicators every 2 seconds
+  - [x] Detect download_complete, thank-you, or .zip URLs
+  - [x] 2-minute timeout for stuck downloads
+- [x] Handle tab lifecycle:
+  - [x] Auto-close tabs after download starts
+  - [x] Clean up tracking data on completion
+  - [x] Start next download from queue
+- [x] Error handling:
+  - [x] Track failed downloads separately
+  - [x] Continue processing queue on failures
+  - [x] Log detailed error information
 
-#### Task 3.3: Individual Album Page Processing (Day 2-3)
-- [ ] Implement album page navigation:
-  - [ ] Navigate to individual album pages
-  - [ ] Handle album page loading detection
-  - [ ] Manage browser tab/window for navigation
-- [ ] Create track-level metadata extraction:
-  - [ ] Extract track numbers
-  - [ ] Extract track titles
-  - [ ] Extract track durations
-  - [ ] Identify track order/sequencing
-- [ ] Add album-level metadata extraction:
-  - [ ] Full album title
-  - [ ] Release date
-  - [ ] Album description
-  - [ ] High-resolution artwork URLs
+**Manual Testing Instructions for Phase 3:**
 
-#### Task 3.4: Download Link Discovery (Day 3-4)
-- [ ] Locate download page access:
-  - [ ] Find download links/buttons on album pages
-  - [ ] Navigate to download pages
-  - [ ] Handle download page authentication
-- [ ] Implement MP3 download link extraction:
-  - [ ] Parse download page DOM for MP3 links
-  - [ ] Extract direct download URLs
-  - [ ] Handle different download page layouts
-  - [ ] Validate download link accessibility
-- [ ] Add download format detection:
-  - [ ] Confirm MP3 format availability
-  - [ ] Handle cases where MP3 isn't available
-  - [ ] Extract download file metadata
+1. **Setup:**
+   - Load extension in Chrome developer mode
+   - Log in to Bandcamp with an account that has purchases
+   - Open the extension popup
 
-#### Task 3.5: Data Aggregation & Validation (Day 4)
-- [ ] Create comprehensive data structure:
-  - [ ] Combine album and track metadata
-  - [ ] Link download URLs to tracks
-  - [ ] Organize data for download processing
-- [ ] Implement data validation:
-  - [ ] Verify all required fields are present
-  - [ ] Validate download URLs are accessible
-  - [ ] Check for missing or corrupted metadata
-- [ ] Add data sanitization:
-  - [ ] Clean up extracted text (remove HTML, fix encoding)
-  - [ ] Sanitize filenames and paths
-  - [ ] Handle special characters and unicode
+2. **Test Purchase Discovery:**
+   - Click "Start Download" button
+   - Verify extension navigates to `https://bandcamp.com/{username}/purchases`
+   - Check console for "Found X purchases" message
+   - Verify popup shows list of first 3 purchases
 
-#### Task 3.6: Scraping Testing & Mock Data (Day 5)
-- [ ] Test scraping with various account types:
-  - [ ] Accounts with many purchases
-  - [ ] Accounts with few purchases
-  - [ ] Different album types (single, EP, LP)
-- [ ] Create mock data for testing:
-  - [ ] Sample album metadata
-  - [ ] Mock download URLs
-  - [ ] Test data for edge cases
-- [ ] Validate scraping accuracy:
-  - [ ] Compare extracted data with actual album info
-  - [ ] Test download link validity
-  - [ ] Verify metadata completeness
+3. **Test Parallel Downloads:**
+   - After discovery completes, watch for multiple tabs opening (up to 3)
+   - Each tab should navigate to a download page
+   - Verify tabs auto-close after download starts
+   - Check progress bar shows "X of Y albums (Z active)"
 
-**Unit Tests:**
-- [ ] Test DOM parsing functions with mock HTML
-- [ ] Test CSS selector robustness with variations
-- [ ] Test metadata extraction accuracy
-- [ ] Test pagination handling logic
+4. **Test Download Page Handling:**
+   - Watch for "Preparing download..." pages
+   - Verify extension auto-clicks download button when ready
+   - Check that actual file downloads start in Chrome
+
+5. **Test Completion:**
+   - Wait for all downloads to complete
+   - Verify final message shows completed and failed counts
+   - Check Chrome's download folder for .zip files
+
+**Expected Results:**
+- ✅ Purchases discovered successfully
+- ✅ Multiple downloads run in parallel (max 3 tabs)
+- ✅ "Preparing" state handled automatically
+- ✅ Progress updates shown in real-time
+- ✅ Files downloaded to Chrome's default download folder
 - [ ] Test download link validation functions
 
 **Acceptance Test:**
@@ -1035,20 +1025,19 @@ chrome.cookies.getAll({
 
 ## Development Timeline & Task Summary
 
-| Phase | Week | Duration | Tasks | Key Deliverables | Status |
-|-------|------|----------|-------|------------------|--------|
-| 1 | 1 | 5 days | 7 tasks | Project setup, extension foundation | ✅ COMPLETED |
-| 2 | 2 | 5 days | 6 tasks | Authentication and session management | 🔄 IN PROGRESS (Task 2.1 ✅) |
-| 3 | 3 | 5 days | 6 tasks | Purchase discovery and scraping | ⏳ PENDING |
-| 4 | 4 | 5 days | 6 tasks | Download manager implementation | ⏳ PENDING |
-| 5 | 5 | 5 days | 6 tasks | Metadata and file organization | ⏳ PENDING |
-| 6 | 6 | 5 days | 6 tasks | User interface development | ⏳ PENDING |
-| 7 | 7 | 5 days | 5 tasks | Testing and polish | ⏳ PENDING |
+| Phase | Status | Key Deliverables | Notes |
+|-------|--------|------------------|-------|
+| 1 | ✅ COMPLETED | Extension foundation, manifest, service worker | All 7 tasks complete |
+| 2 | ✅ SIMPLIFIED | Basic authentication with tab-based login | Core auth working, advanced features deferred |
+| 3 | ✅ COMPLETED | Purchase discovery & core download | DISCOVER_AND_START + parallel tab spawning |
+| 4 | ⏳ MODIFIED | Basic download implementation | Will implement core features only |
+| 5 | ⏳ DEFERRED | Metadata and file organization | After core functionality proven |
+| 6 | ⏳ DEFERRED | Full UI development | After core functionality proven |
+| 7 | ⏳ ONGOING | Testing and polish | Continuous as we build |
 
-**Total Estimated Duration: 7 weeks (35 working days)**  
-**Total Tasks: 42 detailed tasks with 300+ sub-tasks**  
-**Testing Coverage: Unit tests and acceptance tests for every task**  
-**Progress: Phase 1 Complete + Phase 2 Task 2.1 Complete (8/42 tasks = 19% complete)**
+**Revised Strategy**: Build core functionality first (login → discover → download), then enhance
+**Current Focus**: Phase 3 - Get purchase discovery and basic download working
+**Progress**: Phase 1 complete, Phase 2 simplified & working, Phase 3 in progress
 
 ### Task Dependencies
 - **Phase 1**: No dependencies (foundation)

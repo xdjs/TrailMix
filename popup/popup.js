@@ -122,20 +122,66 @@ function updateAuthStatus(status, message) {
 // Event handlers
 async function handleStartDownload() {
   try {
-    addLogEntry('Starting download process...');
-    
-    const response = await sendMessageToBackground({ type: 'START_DOWNLOAD' });
-    
-    if (response.status === 'started') {
+    addLogEntry('Discovering purchases and starting downloads...');
+
+    // Preferred: single-step flow handled entirely by background
+    let response = await sendMessageToBackground({ type: 'DISCOVER_AND_START' });
+    console.log('DISCOVER_AND_START response:', response);
+
+    // Fallback to legacy two-step flow if needed
+    if (!response || response.status !== 'started') {
+      console.warn('DISCOVER_AND_START failed or unsupported, falling back to two-step flow');
+      addLogEntry('Falling back to legacy start flow', 'warning');
+
+      const discoveryResponse = await sendMessageToBackground({ type: 'DISCOVER_PURCHASES' });
+      console.log('Discovery response:', discoveryResponse);
+
+      if (!discoveryResponse || !discoveryResponse.success) {
+        addLogEntry('Failed to discover purchases: ' + (discoveryResponse?.error || 'Unknown error'), 'error');
+        console.error('Discovery failed, response:', discoveryResponse);
+        return;
+      }
+
+      const purchaseCount = discoveryResponse.purchases ? discoveryResponse.purchases.length : 0;
+      addLogEntry(`Found ${purchaseCount} purchases`);
+      if (purchaseCount === 0) return;
+
+      if (discoveryResponse.purchases && Array.isArray(discoveryResponse.purchases)) {
+        discoveryResponse.purchases.slice(0, 3).forEach(purchase => {
+          if (purchase && purchase.title && purchase.artist) {
+            addLogEntry(`  • ${purchase.title} by ${purchase.artist}`);
+          }
+        });
+        if (purchaseCount > 3) {
+          addLogEntry(`  ... and ${purchaseCount - 3} more`);
+        }
+      }
+
+      addLogEntry('Starting download process...');
+      response = await sendMessageToBackground({
+        type: 'START_DOWNLOAD',
+        purchases: discoveryResponse.purchases
+      });
+      console.log('START_DOWNLOAD response:', response);
+    }
+
+    if (response && response.status === 'started') {
       elements.progressSection.style.display = 'block';
       elements.startBtn.style.display = 'none';
       elements.pauseBtn.style.display = 'inline-block';
       elements.stopBtn.style.display = 'inline-block';
-      
+
+      elements.progressStats.textContent = `0 of ${response.totalPurchases || 0} albums`;
       addLogEntry('Download started', 'success');
+    } else if (response && response.status === 'failed') {
+      addLogEntry('Failed to start download: ' + (response.error || 'Unknown error'), 'error');
+    } else {
+      addLogEntry('No response from download handler', 'error');
+      console.error('Invalid or missing response:', response);
     }
   } catch (error) {
-    addLogEntry('Failed to start download', 'error');
+    console.error('Error in handleStartDownload:', error);
+    addLogEntry('Failed to start download: ' + error.message, 'error');
   }
 }
 
@@ -226,8 +272,11 @@ function handleClearLog() {
 // Utility functions
 function sendMessageToBackground(message) {
   return new Promise((resolve, reject) => {
+    console.log('Sending message to background:', message);
     chrome.runtime.sendMessage(message, (response) => {
+      console.log('Received response:', response);
       if (chrome.runtime.lastError) {
+        console.error('Chrome runtime error:', chrome.runtime.lastError);
         reject(chrome.runtime.lastError);
       } else {
         resolve(response);
@@ -253,14 +302,25 @@ function updateProgress(stats) {
     elements.progressFill.style.width = `${percentage}%`;
     elements.progressText.textContent = `${percentage}%`;
     elements.progressStats.textContent = `${stats.completed} of ${stats.total} albums`;
-    
+
+    // Show active downloads count
+    if (stats.active !== undefined && stats.active > 0) {
+      elements.progressStats.textContent += ` (${stats.active} active)`;
+    }
+
     if (stats.currentAlbum) {
       elements.currentItem.querySelector('.current-album').textContent = stats.currentAlbum;
     }
-    
+
     if (stats.currentTrack) {
       elements.currentItem.querySelector('.current-track').textContent = stats.currentTrack;
     }
   }
 }
 
+// Listen for progress updates from background
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'DOWNLOAD_PROGRESS') {
+    updateProgress(message.progress);
+  }
+});

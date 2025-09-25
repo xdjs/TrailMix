@@ -11,7 +11,8 @@
     "scripting"
   ],
   "host_permissions": [
-    "*://*.bandcamp.com/*"
+    "*://*.bandcamp.com/*",
+    "https://bandcamp.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js"
@@ -34,7 +35,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.bandcamp.com/*"],
+      "matches": ["*://*.bandcamp.com/*", "https://bandcamp.com/*"],
       "js": ["content/bandcamp-scraper.js"],
       "run_at": "document_idle"
     }
