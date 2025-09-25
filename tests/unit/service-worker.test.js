@@ -245,14 +245,17 @@ describe('Service Worker', () => {
     });
     
     test('should handle unhandled promise rejections', () => {
-      // Mock PromiseRejectionEvent for Node.js environment
       if (self && typeof self.dispatchEvent === 'function') {
-        const rejectionEvent = {
-          type: 'unhandledrejection',
-          reason: new Error('Test rejection'),
-          promise: Promise.resolve(),
-          preventDefault: jest.fn()
-        };
+        const rejectionEvent = new Event('unhandledrejection');
+        Object.defineProperty(rejectionEvent, 'reason', {
+          value: new Error('Test rejection'),
+          configurable: true
+        });
+        Object.defineProperty(rejectionEvent, 'promise', {
+          value: Promise.resolve(),
+          configurable: true
+        });
+
         expect(() => { self.dispatchEvent(rejectionEvent); }).not.toThrow();
       }
     });

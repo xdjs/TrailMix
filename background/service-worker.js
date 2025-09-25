@@ -327,6 +327,12 @@ async function processNextDownload() {
       }
 
       try {
+        // Ensure we have a download URL before delegating to the download manager
+        const downloadUrl = await resolveDownloadUrlForPurchase(purchase);
+        if (downloadUrl) {
+          purchase.downloadUrl = downloadUrl;
+        }
+
         // Download using DownloadManager (sequential - one at a time)
         await globalDownloadManager.download(purchase);
 
@@ -607,35 +613,108 @@ async function handleDownloadSingle(data, sendResponse) {
   }
 }
 
+// Resolve the download URL for a purchase, fetching it from the album page if necessary
+async function resolveDownloadUrlForPurchase(purchase) {
+  if (!purchase) {
+    throw new Error('No purchase provided for download');
+  }
+
+  if (purchase.downloadUrl) {
+    return purchase.downloadUrl;
+  }
+
+  if (!purchase.url) {
+    throw new Error(`Purchase ${purchase.title || ''} is missing an album URL`);
+  }
+
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
+  let tab = tabs[0];
+  let createdTabId = null;
+
+  if (!tab) {
+    // If we don't already have a Bandcamp tab, open one to the album page so the content script can resolve the link
+    tab = await chrome.tabs.create({ url: purchase.url, active: false });
+    createdTabId = tab.id;
+
+    // Give the page a moment to load and the content script to attach
+    await wait(1500);
+  }
+
+  const tabId = tab.id;
+  const maxAttempts = 5;
+  let lastError = null;
+
+  try {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let response;
+
+      try {
+        response = await chrome.tabs.sendMessage(tabId, {
+          type: 'GET_DOWNLOAD_LINK',
+          albumUrl: purchase.url
+        });
+      } catch (error) {
+        const message = (error && error.message) ? error.message : String(error);
+        lastError = message;
+
+        // If the content script isn't ready yet, retry a few times
+        if (message.includes('Receiving end does not exist') && attempt < maxAttempts - 1) {
+          await wait(1000);
+          continue;
+        }
+
+        break;
+      }
+
+      if (response?.navigating) {
+        await wait(2000);
+        continue;
+      }
+
+      if (response?.success && response.downloadUrl) {
+        purchase.downloadUrl = response.downloadUrl;
+        return response.downloadUrl;
+      }
+
+      if (response?.error) {
+        lastError = response.error;
+        break;
+      }
+
+      if (response?.success === false && response.isOwned) {
+        lastError = response.message || 'Download link not ready yet';
+        await wait(1500);
+        continue;
+      }
+
+      if (response?.message) {
+        lastError = response.message;
+      }
+
+      if (attempt < maxAttempts - 1) {
+        await wait(1500);
+      }
+    }
+  } finally {
+    if (createdTabId !== null) {
+      try {
+        await chrome.tabs.remove(createdTabId);
+      } catch (_) {
+        // Ignore failures closing the temporary tab
+      }
+    }
+  }
+
+  throw new Error(lastError || 'Download URL not available for purchase');
+}
+
 // Download a single album
 async function downloadAlbum(purchase) {
   try {
-    // Find or create a Bandcamp tab
-    const tabs = await chrome.tabs.query({ url: '*://*.bandcamp.com/*' });
-    let tab = tabs[0];
-
-    // Get download link from the album page
-    const linkResponse = await chrome.tabs.sendMessage(tab.id, {
-      type: 'GET_DOWNLOAD_LINK',
-      albumUrl: purchase.url
-    });
-
-    if (linkResponse.navigating) {
-      // Wait for navigation
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      // Try again after navigation
-      const retryResponse = await chrome.tabs.sendMessage(tab.id, {
-        type: 'GET_DOWNLOAD_LINK',
-        albumUrl: purchase.url
-      });
-
-      if (retryResponse.success && retryResponse.downloadUrl) {
-        await initiateDownload(retryResponse.downloadUrl, purchase);
-      }
-    } else if (linkResponse.success && linkResponse.downloadUrl) {
-      await initiateDownload(linkResponse.downloadUrl, purchase);
-    }
+    const downloadUrl = await resolveDownloadUrlForPurchase(purchase);
+    await initiateDownload(downloadUrl, purchase);
   } catch (error) {
     console.error('Error downloading album:', error);
     throw error;
