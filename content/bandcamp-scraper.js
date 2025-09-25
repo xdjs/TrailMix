@@ -57,10 +57,23 @@ if (typeof window !== 'undefined') {
 // Initialize function (exported for testing)
 let __trailMixInitialized = false;
 
-// Extract Bandcamp username from current page (all strategies + fallbacks)
+// Reserved usernames that are not real fan profiles
+const RESERVED_USERNAMES = new Set([
+  'login','signup','help','discover','feed','community','tag','search'
+]);
+
+/**
+ * Extract Bandcamp username from the current page using multiple strategies:
+ * 1. URL path segment on bandcamp.com (highest priority)
+ * 2. Open Graph meta tag (og:url)
+ * 3. Collection button or explicit "Collection" link to bandcamp.com
+ * 4. Header navigation links (menubar/user-nav)
+ * 5. Fallback links to bandcamp.com with ?from= query
+ * Returns null if no suitable username is found.
+ */
 function findUsernameOnPage() {
   try {
-    const reserved = new Set(['login','signup','help','discover','feed','community','tag','search']);
+    const reserved = RESERVED_USERNAMES;
 
     const extractFromHref = (href) => {
       if (!href) return null;
@@ -131,10 +144,12 @@ function findUsernameOnPage() {
   }
 }
 
-// Export for testing
-if (typeof window !== 'undefined') {
-  window.findUsernameOnPage = findUsernameOnPage;
-}
+// Export for testing only
+try {
+  if (typeof window !== 'undefined' && typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') {
+    window.findUsernameOnPage = findUsernameOnPage;
+  }
+} catch (_) {}
 function initialize() {
   if (__trailMixInitialized) return;
   __trailMixInitialized = true;
@@ -480,10 +495,12 @@ async function handleNavigateToPurchases(sendResponse) {
 }
 
 <<<<<<< HEAD
-// Expose for testing
-if (typeof window !== 'undefined') {
-  window.__handleNavigateToPurchases = handleNavigateToPurchases;
-}
+// Expose for testing only
+try {
+  if (typeof window !== 'undefined' && typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') {
+    window.__handleNavigateToPurchases = handleNavigateToPurchases;
+  }
+} catch (_) {}
 
 =======
 >>>>>>> origin/main
