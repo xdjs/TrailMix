@@ -68,13 +68,15 @@ describe('Content Script', () => {
       }).not.toThrow();
     });
 
-    test('should log initialization message', () => {
+    test('should log initialization message', async () => {
       // Clear previous calls
       console.log.mockClear();
 
       // Load content script fresh
       delete require.cache[require.resolve('../../content/bandcamp-scraper.js')];
       require('../../content/bandcamp-scraper.js');
+      // Allow microtask queue
+      await new Promise(r => setTimeout(r, 0));
 
       // Should log the loaded message (initialization message depends on DOM state)
       expect(console.log).toHaveBeenCalledWith('Trail Mix content script loaded');
@@ -94,7 +96,7 @@ describe('Content Script', () => {
       expect(window.location.hostname.includes('bandcamp.com')).toBe(true);
     });
     
-    test('should handle non-Bandcamp pages', () => {
+    test('should handle non-Bandcamp pages', async () => {
       // Mock a different location for this test
       const originalLocation = window.location;
       delete window.location;
@@ -105,6 +107,7 @@ describe('Content Script', () => {
 
       delete require.cache[require.resolve('../../content/bandcamp-scraper.js')];
       require('../../content/bandcamp-scraper.js');
+      await new Promise(r => setTimeout(r, 0));
 
       expect(window.location.hostname.includes('bandcamp.com')).toBe(false);
       // Should log that it's not a Bandcamp page
@@ -118,9 +121,10 @@ describe('Content Script', () => {
   describe('Message Listener Setup', () => {
     let messageHandler;
     
-    beforeEach(() => {
+    beforeEach(async () => {
       delete require.cache[require.resolve('../../content/bandcamp-scraper.js')];
       require('../../content/bandcamp-scraper.js');
+      await new Promise(r => setTimeout(r, 0));
       
       // Get the message handler
       const addListenerCalls = chrome.runtime.onMessage.addListener.mock.calls;
@@ -381,4 +385,3 @@ describe('Content Script', () => {
     });
   });
 });
-
