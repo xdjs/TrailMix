@@ -207,6 +207,10 @@ function setupMessageListener() {
         handleScrapePurchases(sendResponse);
         return true; // Keep channel open for async response
 
+      case 'CHECK_DOWNLOAD_READY':
+        handleCheckDownloadReady(sendResponse);
+        return true;
+
       case 'SCRAPE_ALBUM':
         handleScrapeAlbum(message.albumUrl, sendResponse);
         return true;
@@ -708,6 +712,70 @@ async function handleGetDownloadLink(albumUrl, sendResponse) {
 
   } catch (error) {
     console.error('Error getting download link:', error);
+    sendResponse({ error: error.message });
+  }
+}
+
+// Check if download link is ready on download page
+async function handleCheckDownloadReady(sendResponse) {
+  try {
+    console.log('Checking if download link is ready...');
+
+    // Check for the download link anchor element
+    // Based on the HTML structure: <a href="https://p4.bcbits.com/download/..." ...>Download</a>
+    const downloadLink = document.querySelector('a[href*="bcbits.com/download"]');
+
+    if (downloadLink && downloadLink.href && downloadLink.style.display !== 'none') {
+      // Download link is ready
+      console.log('Download link found:', downloadLink.href);
+      sendResponse({
+        ready: true,
+        url: downloadLink.href
+      });
+    } else {
+      // Check if we're still in preparing state
+      const preparingDiv = document.querySelector('.preparing-wrapper');
+      const isPrep= preparingDiv && preparingDiv.style.display !== 'none';
+
+      if (isPrep) {
+        console.log('Still preparing download...');
+        sendResponse({
+          ready: false,
+          preparing: true
+        });
+      } else {
+        // Look for any visible download link with different selectors
+        const alternativeSelectors = [
+          'a[data-bind*="downloadUrl"]',
+          '.download-format-tmp a[href*="download"]',
+          'a[href*="p4.bcbits.com"]'
+        ];
+
+        let foundLink = null;
+        for (const selector of alternativeSelectors) {
+          const link = document.querySelector(selector);
+          if (link && link.href && !link.style.display?.includes('none')) {
+            foundLink = link.href;
+            break;
+          }
+        }
+
+        if (foundLink) {
+          console.log('Alternative download link found:', foundLink);
+          sendResponse({
+            ready: true,
+            url: foundLink
+          });
+        } else {
+          console.log('Download link not ready yet');
+          sendResponse({
+            ready: false
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error checking download readiness:', error);
     sendResponse({ error: error.message });
   }
 }
