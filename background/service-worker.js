@@ -103,8 +103,12 @@ let downloadState = {
   completed: 0,
   failed: 0,
   activeDownloads: new Map(), // Track active download tabs
-  downloadQueue: []            // Queue of pending downloads
+  downloadQueue: [],           // Queue of pending downloads
+  downloadIds: new Map()       // Map downloadId -> purchase for Downloads API fallback
 };
+
+// Process reentrancy guard
+let isProcessing = false;
 
 // Download handlers
 async function handleStartDownload(data, sendResponse) {
@@ -292,12 +296,19 @@ async function processNextDownload() {
 
   // Get configured max concurrent downloads
   const settings = await chrome.storage.local.get(['maxConcurrentDownloads']);
-  const maxConcurrent = settings.maxConcurrentDownloads || 3; // Default to 3
+  let maxConcurrent = settings.maxConcurrentDownloads;
+  if (typeof maxConcurrent !== 'number' || isNaN(maxConcurrent)) maxConcurrent = 3;
+  // Clamp to [1, 10]
+  maxConcurrent = Math.max(1, Math.min(10, maxConcurrent));
 
   console.log('Max concurrent:', maxConcurrent, 'Active downloads:', downloadState.activeDownloads.size);
 
   // Check if we can start more downloads
-  while (downloadState.activeDownloads.size < maxConcurrent &&
+  // Prevent reentrancy
+  if (isProcessing) return;
+  isProcessing = true;
+
+  while ((downloadState.activeDownloads.size + downloadState.downloadIds.size) < maxConcurrent &&
          downloadState.currentIndex < downloadState.purchases.length) {
 
     const purchase = downloadState.purchases[downloadState.currentIndex];
@@ -312,10 +323,12 @@ async function processNextDownload() {
 
   // Check if all downloads are complete
   if (downloadState.activeDownloads.size === 0 &&
+      downloadState.downloadIds.size === 0 &&
       downloadState.currentIndex >= downloadState.purchases.length) {
     downloadState.isActive = false;
     console.log(`Downloads complete: ${downloadState.completed} successful, ${downloadState.failed} failed`);
   }
+  isProcessing = false;
 }
 
 // Start a download in parallel
@@ -325,6 +338,21 @@ async function startParallelDownload(purchase) {
 
     // If we already have the download URL, use it directly
     if (purchase.downloadUrl) {
+      // Validate URL is https
+      try {
+        const u = new URL(String(purchase.downloadUrl));
+        if (u.protocol !== 'https:') {
+          console.warn('Skipping non-HTTPS download URL:', purchase.downloadUrl);
+          downloadState.failed++;
+          processNextDownload();
+          return;
+        }
+      } catch (e) {
+        console.warn('Invalid download URL:', purchase.downloadUrl);
+        downloadState.failed++;
+        processNextDownload();
+        return;
+      }
       // Create a new tab for this download
       let tab;
       try {
@@ -340,14 +368,15 @@ async function startParallelDownload(purchase) {
         console.warn('Failed to create tab, attempting direct download via Downloads API...', purchase.title);
         const downloadId = await initiateDirectDownload(purchase.downloadUrl, undefined);
         if (downloadId !== null) {
-          // Count this as an active download without a tab
-          downloadState.completed++;
+          // Track this downloadId to update counts on completion
+          downloadState.downloadIds.set(downloadId, { purchase });
           broadcastProgress();
-          // Try next item
           processNextDownload();
           return;
         } else {
-          throw new Error('Could not create tab or start direct download');
+          downloadState.failed++;
+          processNextDownload();
+          return;
         }
       }
 
@@ -471,7 +500,7 @@ function broadcastProgress() {
     total: downloadState.purchases.length,
     completed: downloadState.completed,
     failed: downloadState.failed,
-    active: downloadState.activeDownloads.size,
+    active: downloadState.activeDownloads.size + downloadState.downloadIds.size,
     isActive: downloadState.isActive,
     isPaused: downloadState.isPaused
   };
@@ -487,25 +516,34 @@ function broadcastProgress() {
 
 // Listen for Chrome download events
 if (chrome.downloads && chrome.downloads.onChanged && typeof chrome.downloads.onChanged.addListener === 'function') {
-chrome.downloads.onChanged.addListener((downloadDelta) => {
-  if (downloadDelta.state) {
-    if (downloadDelta.state.current === 'complete') {
-      console.log(`Chrome download completed: ${downloadDelta.id}`);
+  chrome.downloads.onChanged.addListener((downloadDelta) => {
+    if (downloadDelta.state) {
+      if (downloadDelta.state.current === 'complete') {
+        console.log(`Chrome download completed: ${downloadDelta.id}`);
 
-      // Track completed downloads
-      chrome.downloads.search({ id: downloadDelta.id }, (downloads) => {
-        if (downloads && downloads.length > 0) {
-          const download = downloads[0];
-          console.log(`Downloaded file: ${download.filename}`);
-
-          // Could match this to our purchase tracking if needed
+        // Track completed downloads
+        const tracked = downloadState.downloadIds.get(downloadDelta.id);
+        if (tracked) {
+          downloadState.downloadIds.delete(downloadDelta.id);
+          downloadState.completed++;
+          broadcastProgress();
+          // Continue queue if needed
+          setTimeout(() => processNextDownload(), 500);
         }
-      });
-    } else if (downloadDelta.state.current === 'interrupted') {
-      console.error(`Download interrupted: ${downloadDelta.id}`);
+
+        chrome.downloads.search({ id: downloadDelta.id }, (downloads) => {
+          if (downloads && downloads.length > 0) {
+            const download = downloads[0];
+            console.log(`Downloaded file: ${download.filename}`);
+
+            // Could match this to our purchase tracking if needed
+          }
+        });
+      } else if (downloadDelta.state.current === 'interrupted') {
+        console.error(`Download interrupted: ${downloadDelta.id}`);
+      }
     }
-  }
-});
+  });
 }
 
 // Helper to initiate download with Chrome Downloads API
