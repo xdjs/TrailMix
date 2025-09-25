@@ -407,17 +407,12 @@ async function handleNavigateToPurchases(sendResponse) {
     console.log('Attempting to navigate to purchases page...');
 
     // Check if we're already on the purchases page
-<<<<<<< HEAD
     const pathname = (window && window.location && typeof window.location.pathname === 'string') ? window.location.pathname : '';
     if (pathname.includes('/purchases')) {
-=======
-    if (window.location.pathname.includes('/purchases')) {
->>>>>>> origin/main
       sendResponse({ success: true, message: 'Already on purchases page', purchasesUrl: window.location.href });
       return;
     }
 
-<<<<<<< HEAD
     // Resolve username via dedicated resolver
     const username = findUsernameOnPage();
 
@@ -426,55 +421,6 @@ async function handleNavigateToPurchases(sendResponse) {
       console.log('Constructed purchases URL from username:', username, purchasesUrl);
       sendResponse({ success: true, purchasesUrl });
       return;
-=======
-    // Extract username from the Collection button (we know this works)
-    console.log('Extracting username from Collection button...');
-
-    const collectionButton = document.querySelector('a[href*="?from=menubar"]') ||
-                            Array.from(document.querySelectorAll('a')).find(link =>
-                              link.textContent.trim() === 'Collection' && link.href.includes('bandcamp.com')
-                            );
-
-    if (collectionButton && collectionButton.href) {
-      // Extract username from URL like: https://bandcamp.com/carlxt?from=menubar
-      const match = collectionButton.href.match(/bandcamp\.com\/([^\/\?]+)/);
-      if (match && match[1]) {
-        const username = match[1];
-        const purchasesUrl = `https://bandcamp.com/${username}/purchases`;
-
-        console.log('Found username:', username);
-        console.log('Constructed purchases URL:', purchasesUrl);
-
-        sendResponse({ success: true, purchasesUrl: purchasesUrl });
-        return;
-      }
-    }
-
-    // Fallback: Try to get username from other sources
-    console.log('Collection button not found, trying other methods...');
-
-    // Check if we're logged in and can find username elsewhere
-    const usernameSelectors = [
-      'a[href*="bandcamp.com/"][href*="?from="]', // Links with from parameter
-      '.menubar a[href^="https://bandcamp.com/"]', // Direct profile links
-    ];
-
-    for (const selector of usernameSelectors) {
-      const element = document.querySelector(selector);
-      if (element && element.href) {
-        const match = element.href.match(/bandcamp\.com\/([^\/\?]+)/);
-        if (match && match[1] && !['login', 'signup', 'help', 'discover'].includes(match[1])) {
-          const username = match[1];
-          const purchasesUrl = `https://bandcamp.com/${username}/purchases`;
-
-          console.log('Found username from fallback:', username);
-          console.log('Constructed purchases URL:', purchasesUrl);
-
-          sendResponse({ success: true, purchasesUrl: purchasesUrl });
-          return;
-        }
-      }
->>>>>>> origin/main
     }
 
     // Last resort: Try to find any purchases link on the page
@@ -494,16 +440,12 @@ async function handleNavigateToPurchases(sendResponse) {
   }
 }
 
-<<<<<<< HEAD
 // Expose for testing only
 try {
   if (typeof window !== 'undefined' && typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') {
     window.__handleNavigateToPurchases = handleNavigateToPurchases;
   }
 } catch (_) {}
-
-=======
->>>>>>> origin/main
 // Scrape purchases page
 async function handleScrapePurchases(sendResponse) {
   try {
