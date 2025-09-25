@@ -57,6 +57,83 @@ if (typeof window !== 'undefined') {
 // Initialize function (exported for testing)
 let __trailMixInitialized = false;
 
+// Extract Bandcamp username from current page (all strategies + fallbacks)
+function findUsernameOnPage() {
+  try {
+    const reserved = new Set(['login','signup','help','discover','feed','community','tag','search']);
+
+    const extractFromHref = (href) => {
+      if (!href) return null;
+      const m = String(href).match(/bandcamp\.com\/([^\/?#]+)(?:[\/?#]|$)/);
+      if (!m || !m[1]) return null;
+      const candidate = m[1];
+      return reserved.has(candidate) ? null : candidate;
+    };
+
+    // Strategy 1: path segment on bandcamp.com
+    try {
+      if (window.location.hostname === 'bandcamp.com') {
+        const seg = (window.location.pathname || '/').split('/').filter(Boolean);
+        if (seg.length >= 1) {
+          const candidate = seg[0];
+          if (candidate && !reserved.has(candidate)) {
+            return candidate;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Strategy 2: meta og:url
+    try {
+      const og = document.querySelector('meta[property="og:url"]');
+      const href = og && og.getAttribute('content');
+      const fromOg = extractFromHref(href);
+      if (fromOg) return fromOg;
+    } catch (_) {}
+
+    // Strategy 3: Collection button or explicit "collection" text link
+    try {
+      const collectionButton = document.querySelector('a[href*="?from=menubar"]') ||
+        Array.from(document.querySelectorAll('a')).find(link =>
+          (link.textContent || '').trim().toLowerCase() === 'collection' && String(link.href).includes('bandcamp.com')
+        );
+      const fromCollection = extractFromHref(collectionButton && collectionButton.href);
+      if (fromCollection) return fromCollection;
+    } catch (_) {}
+
+    // Strategy 4: Other header links (menubar, user-nav)
+    try {
+      const headerLinks = document.querySelectorAll('.menubar a[href*="bandcamp.com/"], .user-nav a[href*="bandcamp.com/"]');
+      for (const link of headerLinks) {
+        const fromHeader = extractFromHref(link && link.href);
+        if (fromHeader) return fromHeader;
+      }
+    } catch (_) {}
+
+    // Strategy 5: Fallback selectors for profile links with query params
+    try {
+      const usernameSelectors = [
+        'a[href*="bandcamp.com/"][href*="?from="]',
+        '.menubar a[href^="https://bandcamp.com/"]'
+      ];
+      for (const selector of usernameSelectors) {
+        const element = document.querySelector(selector);
+        const fromFallback = extractFromHref(element && element.href);
+        if (fromFallback) return fromFallback;
+      }
+    } catch (_) {}
+
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Export for testing
+if (typeof window !== 'undefined') {
+  window.findUsernameOnPage = findUsernameOnPage;
+}
+
 function initialize() {
   if (__trailMixInitialized) return;
   __trailMixInitialized = true;
@@ -314,89 +391,14 @@ async function handleNavigateToPurchases(sendResponse) {
       return;
     }
 
-    // Try multiple strategies to extract username
-    let username = null;
-
-    // Strategy 1: URL path on bandcamp.com (e.g., /carlxt, /carlxt/collection)
-    try {
-      if (window.location.hostname === 'bandcamp.com') {
-        const seg = (window.location.pathname || '/').split('/').filter(Boolean);
-        if (seg.length >= 1) {
-          const candidate = seg[0];
-          const reserved = new Set(['login','signup','help','discover','feed','community','tag','search']);
-          if (candidate && !reserved.has(candidate)) {
-            username = candidate;
-          }
-        }
-      }
-    } catch (_) {}
-
-    // Strategy 2: meta og:url (e.g., https://bandcamp.com/carlxt)
-    if (!username) {
-      const og = document.querySelector('meta[property="og:url"]');
-      const href = og && og.getAttribute('content');
-      if (href) {
-        const m = href.match(/bandcamp\.com\/([^\/?#]+)/);
-        if (m && m[1]) username = m[1];
-      }
-    }
-
-    // Strategy 3: Collection button or menubar links
-    if (!username) {
-      console.log('Extracting username from Collection button...');
-      const collectionButton = document.querySelector('a[href*="?from=menubar"]') ||
-        Array.from(document.querySelectorAll('a')).find(link =>
-          link.textContent.trim().toLowerCase() === 'collection' && link.href.includes('bandcamp.com')
-        );
-      if (collectionButton && collectionButton.href) {
-        const match = collectionButton.href.match(/bandcamp\.com\/([^\/\?]+)/);
-        if (match && match[1]) username = match[1];
-      }
-    }
-
-    // Strategy 4: Other header links
-    if (!username) {
-      const headerLinks = document.querySelectorAll('.menubar a[href*="bandcamp.com/"], .user-nav a[href*="bandcamp.com/"]');
-      for (const link of headerLinks) {
-        const match = (link.href || '').match(/bandcamp\.com\/([^\/\?]+)(?:[\?\/]|$)/);
-        if (match && match[1] && !['login','signup','help','discover','feed'].includes(match[1])) {
-          username = match[1];
-          break;
-        }
-      }
-    }
+    // Resolve username via dedicated resolver
+    const username = findUsernameOnPage();
 
     if (username) {
       const purchasesUrl = `https://bandcamp.com/${username}/purchases`;
       console.log('Constructed purchases URL from username:', username, purchasesUrl);
       sendResponse({ success: true, purchasesUrl });
       return;
-    }
-
-    // Fallback: Try to get username from other sources
-    console.log('Collection button not found, trying other methods...');
-
-    // Check if we're logged in and can find username elsewhere
-    const usernameSelectors = [
-      'a[href*="bandcamp.com/"][href*="?from="]', // Links with from parameter
-      '.menubar a[href^="https://bandcamp.com/"]', // Direct profile links
-    ];
-
-    for (const selector of usernameSelectors) {
-      const element = document.querySelector(selector);
-      if (element && element.href) {
-        const match = element.href.match(/bandcamp\.com\/([^\/\?]+)/);
-        if (match && match[1] && !['login', 'signup', 'help', 'discover'].includes(match[1])) {
-          const username = match[1];
-          const purchasesUrl = `https://bandcamp.com/${username}/purchases`;
-
-          console.log('Found username from fallback:', username);
-          console.log('Constructed purchases URL:', purchasesUrl);
-
-          sendResponse({ success: true, purchasesUrl: purchasesUrl });
-          return;
-        }
-      }
     }
 
     // Last resort: Try to find any purchases link on the page
