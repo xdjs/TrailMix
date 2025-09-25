@@ -33,7 +33,52 @@
 - ✅ Full testing infrastructure with Jest and Chrome API mocks
 - ✅ Git repository initialized with all code committed
 
-**🔄 Next**: Phase 4 Task 4.1 - Core Download Engine (download manager foundation)
+**🔄 Next**: Phase 4 Task 4.2 - Redesign Queue Management System
+
+---
+
+## 📋 Up Next - Priority Todo List
+
+### Active Development Tasks
+1. **Redesign and reimplement queue management from scratch**
+   - Start fresh with new architecture
+   - Better integration with download manager
+   - Support for batch operations
+
+2. **Create DownloadJob class for state tracking**
+   - Encapsulate download state and metadata
+   - Track progress, errors, and retry attempts
+   - Enable serialization for persistence
+
+3. **Implement retry logic with exponential backoff**
+   - Handle transient network failures
+   - Max 3 retry attempts by default
+   - Exponential backoff (2^n seconds)
+
+4. **Add error classification and handling**
+   - Categorize errors (network, permission, disk, auth)
+   - Different strategies per error type
+   - User-friendly error messages
+
+5. **Implement pause/resume functionality**
+   - Individual and queue-wide pause/resume
+   - Persist state across sessions
+   - Resume from interruption point
+
+6. **Implement file organization system**
+   - Create Downloads/Bandcamp/Artist/Album/ structure
+   - Sanitize filenames for filesystem compatibility
+   - Handle duplicates with numbering
+
+7. **Research and implement album ZIP file handling**
+   - Evaluate extraction vs keeping as ZIP
+   - Consider memory constraints
+   - User preference for format
+
+8. **Implement pagination handling for purchases page**
+   - Handle infinite scroll/load more buttons
+   - Support large collections (100+ albums)
+   - Track loaded vs total purchases
 
 ---
 
@@ -432,7 +477,25 @@ Additional outcome:
   - [x] Track completed, failed, and active counts
   - [x] Display active download count in UI
 
-#### Task 3.6: Download Completion Handling ✅ COMPLETED
+#### Task 3.6: Pagination Handling
+- [ ] Implement infinite scroll detection:
+  - [ ] Detect when user's purchases use pagination
+  - [ ] Check for "Load More" button or scroll trigger
+  - [ ] Monitor for dynamically loaded content
+- [ ] Create pagination navigation:
+  - [ ] Automatically scroll to load more purchases
+  - [ ] Handle "Load More" button clicks if present
+  - [ ] Wait for new content to load before continuing
+- [ ] Implement complete collection scanning:
+  - [ ] Keep loading until all purchases found
+  - [ ] Track total vs loaded purchase count
+  - [ ] Handle very large collections (100+ albums)
+- [ ] Add pagination error handling:
+  - [ ] Handle network errors during pagination
+  - [ ] Retry failed page loads
+  - [ ] Set maximum pagination attempts
+
+#### Task 3.7: Download Completion Handling ✅ COMPLETED
 - [x] Monitor download tabs:
   - [x] Check for completion indicators every 2 seconds
   - [x] Detect download_complete, thank-you, or .zip URLs
@@ -484,126 +547,193 @@ Additional outcome:
 - [ ] Test download link validation functions
 
 **Acceptance Test:**
-- [ ] **AC3.6.1**: Successfully extracts all albums from purchases page
-- [ ] **AC3.6.2**: Correctly identifies album metadata (title, artist, date)
-- [ ] **AC3.6.3**: Finds valid download links for all purchased albums
-- [ ] **AC3.6.4**: Handles edge cases (special characters, missing data)
-- [ ] **AC3.6.5**: Works with different Bandcamp page layouts
-- [ ] **AC3.6.6**: Scraping completes within reasonable time limits
+- [ ] **AC3.6.1**: Handles pagination to load all purchases
+- [ ] **AC3.6.2**: Works with collections of 100+ albums
+- [ ] **AC3.7.1**: Successfully extracts all albums from purchases page
+- [ ] **AC3.7.2**: Correctly identifies album metadata (title, artist, date)
+- [ ] **AC3.7.3**: Finds valid download links for all purchased albums
+- [ ] **AC3.7.4**: Handles edge cases (special characters, missing data)
+- [ ] **AC3.7.5**: Works with different Bandcamp page layouts
+- [ ] **AC3.7.6**: Scraping completes within reasonable time limits
 
-### Phase 4: Download Manager Implementation (Week 4)
+### Phase 4: Download Manager Implementation (Week 4) - REFACTORED
 
-**Duration**: 5 days  
-**Dependencies**: Phase 3 complete (purchase discovery working)  
+**Duration**: 5 days
+**Dependencies**: Phase 3 complete (purchase discovery working)
 **Deliverables**: Complete download management system with progress tracking
 
-#### Task 4.1: Core Download Engine (Day 1)
-- [ ] Create `lib/download-manager.js` foundation
-- [ ] Implement sequential download queue:
-  - [ ] Create download queue data structure
-  - [ ] Add queue management (add, remove, prioritize)
-  - [ ] Implement sequential processing (one at a time)
-- [ ] Integrate Chrome Downloads API:
-  - [ ] Use `chrome.downloads.download()` for file downloads
-  - [ ] Handle download initiation
-  - [ ] Monitor download progress events
-  - [ ] Detect download completion/failure
-- [ ] Create download job management:
-  - [ ] Track individual download jobs
-  - [ ] Manage download metadata
-  - [ ] Handle download state transitions
+#### Completed Tasks ✅
 
-#### Task 4.2: Progress Tracking System (Day 1-2)
-- [ ] Implement download progress tracking:
-  - [ ] Track individual file download progress
-  - [ ] Calculate overall progress (X of Y albums completed)
-  - [ ] Track bytes downloaded vs total size
-- [ ] Create progress state management:
-  - [ ] Maintain download state in memory (session-based only)
-  - [ ] Track completed vs pending downloads
-  - [ ] Store current download status
-- [ ] Implement progress reporting to UI:
-  - [ ] Send progress updates to popup
-  - [ ] Update progress indicators in real-time
-  - [ ] Show current downloading item details
+**Task 4.1: Core Download Engine (COMPLETED)**
+- [x] Create `lib/download-manager.js` foundation
+- [x] Implement single download functionality:
+  - [x] Open download page in inactive tab
+  - [x] Monitor tab for download link readiness
+  - [x] Extract download link when ready
+  - [x] Initiate download using Chrome Downloads API
+  - [x] Close tab after initiating download
+- [x] Integrate Chrome Downloads API:
+  - [x] Use `chrome.downloads.download()` for file downloads
+  - [x] Handle download initiation
+  - [x] Monitor download progress events
+  - [x] Detect download completion/failure
+- [x] Security & stability fixes:
+  - [x] Add URL validation (bcbits.com only)
+  - [x] Fix memory leak in downloadProgress
+  - [x] Fix race condition in tab creation
 
-#### Task 4.3: Error Handling & Retry Logic (Day 2-3)
-- [ ] Implement download failure detection:
-  - [ ] Monitor Chrome download events for failures
-  - [ ] Detect network errors and timeouts
-  - [ ] Identify different failure types
-- [ ] Create retry mechanism:
-  - [ ] Implement configurable retry attempts (default: 3)
-  - [ ] Add exponential backoff for retries
-  - [ ] Track retry count per download
-- [ ] Add comprehensive error handling:
-  - [ ] Handle network connectivity issues
-  - [ ] Manage disk space problems
-  - [ ] Deal with permission errors
-  - [ ] Log error details for debugging
+#### Remaining Tasks
 
-#### Task 4.4: Resume & Recovery Functionality (Day 3)
-- [ ] Implement session expiry handling:
-  - [ ] Detect when authentication expires during downloads
-  - [ ] Stop current downloads gracefully
-  - [ ] Prompt user for re-authentication
-  - [ ] Resume from last successful download after re-login
-- [ ] Create download interruption recovery:
-  - [ ] Handle browser/extension crashes
-  - [ ] Clean up partial downloads
-  - [ ] Resume from interruption point
-- [ ] Add download state persistence (session-based only):
-  - [ ] Keep current state in memory
-  - [ ] No cross-session persistence (per requirements)
-  - [ ] Reset state on extension reload
+**Task 4.2: Redesign Queue Management System (Days 1-2)**
+- [ ] Design new queue architecture from scratch
+- [ ] Create improved queue data structure
+- [ ] Implement queue operations:
+  - [ ] Add items to queue
+  - [ ] Remove items from queue
+  - [ ] Reorder/prioritize items
+  - [ ] Clear queue
+- [ ] Build sequential processing with better state management
+- [ ] Add batch operations support
+- [ ] Create queue persistence mechanism
+- [ ] Integrate queue with service worker
 
-#### Task 4.5: Rate Limiting & Throttling (Day 4)
-- [ ] Implement download rate limiting:
-  - [ ] Add configurable delays between downloads
-  - [ ] Default to 2-3 seconds between downloads
-  - [ ] Respect Bandcamp server load
-- [ ] Create bandwidth management:
-  - [ ] Monitor download speeds
-  - [ ] Adjust timing based on performance
-  - [ ] Handle server response times
-- [ ] Add polite downloading behavior:
-  - [ ] Avoid overwhelming Bandcamp servers
-  - [ ] Implement reasonable request patterns
-  - [ ] Add user-configurable throttling options
+**Task 4.3: Create DownloadJob Class (Day 2)**
+- [ ] Design DownloadJob class for encapsulation
+- [ ] Track download state and metadata:
+  - [ ] Download status (pending, downloading, completed, failed)
+  - [ ] Progress information (bytes, percentage)
+  - [ ] Error information
+  - [ ] Retry count
+- [ ] Implement state transitions
+- [ ] Add progress tracking per job
+- [ ] Store error information and retry attempts
+- [ ] Create job serialization for persistence
 
-#### Task 4.6: Download Manager Testing (Day 5)
-- [ ] Test sequential download processing:
-  - [ ] Verify downloads happen one at a time
-  - [ ] Test queue management functionality
-  - [ ] Validate download completion detection
-- [ ] Test error scenarios:
-  - [ ] Network interruptions
-  - [ ] Authentication expiry
-  - [ ] Disk space issues
-  - [ ] Invalid download URLs
-- [ ] Test retry and recovery:
-  - [ ] Failed download retry attempts
-  - [ ] Session expiry recovery
-  - [ ] Partial download cleanup
+**Task 4.4: Implement Retry Logic (Day 3)**
+- [ ] Add retry mechanism with exponential backoff
+- [ ] Configure max retry attempts (default: 3)
+- [ ] Track retry count per download
+- [ ] Implement backoff calculation (2^n seconds)
+- [ ] Handle permanent vs transient failures
+- [ ] Add retry queue management
+- [ ] Create retry status reporting
+
+**Task 4.5: Error Classification & Handling (Day 3)**
+- [ ] Classify error types:
+  - [ ] Network errors (timeout, connection lost)
+  - [ ] Permission errors (file access denied)
+  - [ ] Disk errors (no space, write failed)
+  - [ ] Authentication errors (session expired)
+  - [ ] Server errors (404, 500, etc)
+- [ ] Create error handling strategies per type
+- [ ] Add user-friendly error messages
+- [ ] Implement error recovery mechanisms
+- [ ] Log errors for debugging
+
+**Task 4.6: Pause/Resume Functionality (Day 4)**
+- [ ] Implement pause for individual downloads
+- [ ] Add queue-wide pause/resume
+- [ ] Persist pause state in session storage
+- [ ] Handle resume after browser restart
+- [ ] Maintain download position on resume
+- [ ] Create pause/resume UI controls
+- [ ] Test pause/resume with large files
+
+**Task 4.7: File Organization System (Day 4)**
+- [ ] Implement folder structure creation:
+  - [ ] Create `Downloads/Bandcamp/Artist/Album/` structure
+  - [ ] Handle nested folder creation in Downloads folder
+  - [ ] Ensure cross-platform path compatibility
+- [ ] Add filename sanitization:
+  - [ ] Remove/replace invalid filesystem characters
+  - [ ] Handle Unicode characters properly
+  - [ ] Maintain filename readability
+  - [ ] Log sanitization decisions
+- [ ] Implement duplicate handling:
+  - [ ] Detect duplicate filenames
+  - [ ] Append numbers for conflicts (e.g., "Album (2).zip")
+  - [ ] Log duplicate resolution decisions
+  - [ ] Maintain original filename intent
+- [ ] Create organized download paths:
+  - [ ] Generate proper paths for each download
+  - [ ] Pass filename to Chrome Downloads API
+  - [ ] Handle path length limits
+
+**Task 4.8: Album ZIP File Handling (Day 4)**
+- [ ] Research ZIP file handling options:
+  - [ ] Investigate if Chrome can auto-extract ZIPs
+  - [ ] Evaluate JSZip library for in-browser extraction
+  - [ ] Consider leaving as ZIP vs extracting
+  - [ ] Assess memory constraints for large albums
+- [ ] Design ZIP handling strategy:
+  - [ ] Determine if extraction is needed/wanted
+  - [ ] Plan extraction workflow if applicable
+  - [ ] Consider user preferences for ZIP vs extracted
+- [ ] Implement chosen approach:
+  - [ ] If keeping ZIP: organize ZIP files properly
+  - [ ] If extracting: implement extraction logic
+  - [ ] Handle extraction errors gracefully
+- [ ] Test ZIP handling:
+  - [ ] Test with various album sizes
+  - [ ] Test memory usage during extraction
+  - [ ] Verify file integrity after processing
+
+**Task 4.9: Integration & Testing (Day 5)**
+- [ ] Integrate all components:
+  - [ ] Connect queue with DownloadJob class
+  - [ ] Wire up retry logic with queue
+  - [ ] Integrate error handling throughout
+  - [ ] Connect pause/resume to UI
+- [ ] Test queue management:
+  - [ ] Test queue operations (add, remove, reorder)
+  - [ ] Test sequential processing
+  - [ ] Test batch operations
+  - [ ] Test queue persistence
+- [ ] Test DownloadJob functionality:
+  - [ ] Test state transitions
+  - [ ] Test progress tracking
+  - [ ] Test job serialization
+- [ ] Test retry logic scenarios:
+  - [ ] Test exponential backoff timing
+  - [ ] Test max retry limits
+  - [ ] Test permanent vs transient failures
+- [ ] Test error handling paths:
+  - [ ] Test each error type classification
+  - [ ] Test error recovery mechanisms
+  - [ ] Test user error messages
+- [ ] Test pause/resume functionality:
+  - [ ] Test individual download pause/resume
+  - [ ] Test queue-wide pause/resume
+  - [ ] Test resume after browser restart
 - [ ] Performance testing:
-  - [ ] Large download queues
+  - [ ] Large download queues (50+ items)
   - [ ] Long-running download sessions
   - [ ] Memory usage monitoring
 
 **Unit Tests:**
-- [ ] Test download queue data structure operations
-- [ ] Test Chrome Downloads API integration
-- [ ] Test progress tracking calculations
+- [x] Test single download functionality
+- [ ] Test new queue data structure operations
+- [ ] Test DownloadJob class methods
 - [ ] Test retry logic with exponential backoff
 - [ ] Test error classification and handling
+- [ ] Test pause/resume state management
 
-**Acceptance Test:**
-- [ ] **AC4.6.1**: Downloads process sequentially without overlapping
-- [ ] **AC4.6.2**: Progress tracking accurately reflects download status
-- [ ] **AC4.6.3**: Failed downloads retry automatically up to limit
-- [ ] **AC4.6.4**: Session expiry stops downloads and prompts re-auth
-- [ ] **AC4.6.5**: Large queues (50+ items) process reliably
-- [ ] **AC4.6.6**: Memory usage remains stable during long sessions
+**Acceptance Tests:**
+- [x] **AC4.1.1**: Single download completes successfully
+- [x] **AC4.1.2**: Download progress tracked accurately
+- [x] **AC4.1.3**: Tab closed after download initiated
+- [x] **AC4.1.4**: URL validation prevents non-bcbits downloads
+- [ ] **AC4.2.1**: Queue processes downloads sequentially
+- [ ] **AC4.3.1**: DownloadJob tracks state correctly
+- [ ] **AC4.4.1**: Failed downloads retry with backoff
+- [ ] **AC4.5.1**: Errors classified and handled appropriately
+- [ ] **AC4.6.1**: Downloads can be paused and resumed
+- [ ] **AC4.7.1**: Files organized in Downloads/Bandcamp/Artist/Album structure
+- [ ] **AC4.7.2**: Filenames sanitized for filesystem compatibility
+- [ ] **AC4.8.1**: ZIP files handled according to chosen strategy
+- [ ] **AC4.8.2**: Memory usage acceptable for ZIP processing
+- [ ] **AC4.9.1**: Large queues (50+ items) process reliably
+- [ ] **AC4.9.2**: Memory usage remains stable during long sessions
 
 ### Phase 5: Metadata & File Organization (Week 5)
 
@@ -657,23 +787,7 @@ Additional outcome:
   - [ ] Manage cache storage and cleanup
   - [ ] Handle artwork updates and versions
 
-#### Task 5.4: File Organization System (Day 3-4)
-- [ ] Implement folder structure creation:
-  - [ ] Create `Artist / Album / TrackNumber - Title.mp3` structure
-  - [ ] Handle nested folder creation
-  - [ ] Ensure cross-platform path compatibility
-- [ ] Add filename sanitization:
-  - [ ] Remove/replace invalid filesystem characters
-  - [ ] Handle Unicode characters properly
-  - [ ] Maintain filename readability
-  - [ ] Log sanitization decisions
-- [ ] Implement duplicate handling:
-  - [ ] Detect duplicate filenames
-  - [ ] Append numbers for conflicts (e.g., "Song (2).mp3")
-  - [ ] Log duplicate resolution decisions
-  - [ ] Maintain original filename intent
-
-#### Task 5.5: File Processing Integration (Day 4)
+#### Task 5.4: File Processing Integration (Day 3-4)
 - [ ] Integrate metadata processing with download manager:
   - [ ] Process files immediately after download
   - [ ] Handle processing failures gracefully
@@ -687,15 +801,11 @@ Additional outcome:
   - [ ] Report file organization progress
   - [ ] Update UI with processing status
 
-#### Task 5.6: Metadata & Organization Testing (Day 5)
+#### Task 5.5: Metadata Testing (Day 5)
 - [ ] Test metadata embedding:
   - [ ] Verify all metadata fields are embedded correctly
   - [ ] Test with various MP3 file types
   - [ ] Validate metadata player compatibility
-- [ ] Test file organization:
-  - [ ] Verify folder structure creation
-  - [ ] Test filename sanitization edge cases
-  - [ ] Validate duplicate handling
 - [ ] Test artwork processing:
   - [ ] Verify artwork embedding in various players
   - [ ] Test different artwork sizes and formats
@@ -707,14 +817,11 @@ Additional outcome:
 
 **Unit Tests:**
 - [ ] Test ID3 tag writing and reading functions
-- [ ] Test filename sanitization with edge cases
-- [ ] Test folder structure creation logic
 - [ ] Test artwork processing and embedding
-- [ ] Test duplicate file handling algorithms
+- [ ] Test metadata validation and correction
 
 **Acceptance Test:**
-- [ ] **AC5.6.1**: All metadata fields appear correctly in music players
-- [ ] **AC5.6.2**: Files are organized in correct folder structure
+- [ ] **AC5.5.1**: All metadata fields appear correctly in music players
 - [ ] **AC5.6.3**: Artwork displays properly in all tested players
 - [ ] **AC5.6.4**: Special characters in filenames are handled safely
 - [ ] **AC5.6.5**: Duplicate files are renamed appropriately
