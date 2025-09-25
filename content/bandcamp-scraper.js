@@ -72,8 +72,10 @@ function findUsernameOnPage() {
 
     // Strategy 1: path segment on bandcamp.com
     try {
-      if (window.location.hostname === 'bandcamp.com') {
-        const seg = (window.location.pathname || '/').split('/').filter(Boolean);
+      const host = window && window.location && window.location.hostname;
+      const path = (window && window.location && typeof window.location.pathname === 'string') ? window.location.pathname : '/';
+      if (host === 'bandcamp.com') {
+        const seg = (path || '/').split('/').filter(Boolean);
         if (seg.length >= 1) {
           const candidate = seg[0];
           if (candidate && !reserved.has(candidate)) {
@@ -169,7 +171,12 @@ if (typeof document !== 'undefined') {
 
 // Check if current page is a Bandcamp page
 function isBandcampPage() {
-  return window.location.hostname.includes('bandcamp.com');
+  try {
+    const host = window && window.location && window.location.hostname;
+    return typeof host === 'string' && host.includes('bandcamp.com');
+  } catch (_) {
+    return false;
+  }
 }
 
 // Set up message listener for communication with background script
@@ -386,7 +393,8 @@ async function handleNavigateToPurchases(sendResponse) {
     console.log('Attempting to navigate to purchases page...');
 
     // Check if we're already on the purchases page
-    if (window.location.pathname.includes('/purchases')) {
+    const pathname = (window && window.location && typeof window.location.pathname === 'string') ? window.location.pathname : '';
+    if (pathname.includes('/purchases')) {
       sendResponse({ success: true, message: 'Already on purchases page', purchasesUrl: window.location.href });
       return;
     }
@@ -416,6 +424,11 @@ async function handleNavigateToPurchases(sendResponse) {
     console.error('Error navigating to purchases:', error);
     sendResponse({ error: error.message });
   }
+}
+
+// Expose for testing
+if (typeof window !== 'undefined') {
+  window.__handleNavigateToPurchases = handleNavigateToPurchases;
 }
 
 // Scrape purchases page

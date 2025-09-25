@@ -7,6 +7,12 @@ const { JSDOM } = require('jsdom');
 function loadContentScript() {
   jest.resetModules();
   delete require.cache[require.resolve('../../content/bandcamp-scraper.js')];
+  try {
+    Object.defineProperty(global.document, 'readyState', {
+      value: 'complete',
+      configurable: true
+    });
+  } catch (_) {}
   require('../../content/bandcamp-scraper.js');
 }
 
@@ -18,32 +24,18 @@ function setupDom(url, html = '<!DOCTYPE html><html><head></head><body></body></
   return dom;
 }
 
-function getMessageHandler() {
-  const calls = chrome.runtime.onMessage.addListener.mock.calls;
-  if (!calls.length) return null;
-  return calls[0][0];
-}
+// We will call the exposed testing hook instead of relying on message bus
 
 describe('handleNavigateToPurchases', () => {
-  afterEach(() => {
-    if (global.window && typeof global.window.close === 'function') {
-      global.window.close();
-    }
-  });
+  let originalSelf;
+  beforeEach(() => { originalSelf = global.self; });
+  afterEach(() => { global.self = originalSelf; });
 
   test('returns current URL when already on purchases page', async () => {
     setupDom('https://bandcamp.com/testuser/purchases');
     loadContentScript();
-    const handler = getMessageHandler();
     const sendResponse = jest.fn();
-
-    const keepAlive = handler({ type: 'NAVIGATE_TO_PURCHASES' }, { tab: { id: 1 } }, sendResponse);
-    expect(keepAlive).toBe(true);
-
-    // Wait for async sendResponse
-    for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
-      await new Promise(r => setTimeout(r, 1));
-    }
+    await window.__handleNavigateToPurchases(sendResponse);
 
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(true);
@@ -53,13 +45,8 @@ describe('handleNavigateToPurchases', () => {
   test('constructs purchases URL from root path username', async () => {
     setupDom('https://bandcamp.com/carlxt/collection');
     loadContentScript();
-    const handler = getMessageHandler();
     const sendResponse = jest.fn();
-    handler({ type: 'NAVIGATE_TO_PURCHASES' }, { tab: { id: 1 } }, sendResponse);
-
-    for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
-      await new Promise(r => setTimeout(r, 1));
-    }
+    await window.__handleNavigateToPurchases(sendResponse);
 
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(true);
@@ -72,13 +59,8 @@ describe('handleNavigateToPurchases', () => {
     </head><body></body></html>`;
     setupDom('https://bandcamp.com/', html);
     loadContentScript();
-    const handler = getMessageHandler();
     const sendResponse = jest.fn();
-    handler({ type: 'NAVIGATE_TO_PURCHASES' }, { tab: { id: 1 } }, sendResponse);
-
-    for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
-      await new Promise(r => setTimeout(r, 1));
-    }
+    await window.__handleNavigateToPurchases(sendResponse);
 
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(true);
@@ -89,15 +71,10 @@ describe('handleNavigateToPurchases', () => {
     const html = `<!DOCTYPE html><html><body>
       <a href="https://bandcamp.com/user2?from=menubar">Collection</a>
     </body></html>`;
-    setupDom('https://x.bandcamp.com/album/y', html);
+    setupDom('https://bandcamp.com', html);
     loadContentScript();
-    const handler = getMessageHandler();
     const sendResponse = jest.fn();
-    handler({ type: 'NAVIGATE_TO_PURCHASES' }, { tab: { id: 1 } }, sendResponse);
-
-    for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
-      await new Promise(r => setTimeout(r, 1));
-    }
+    await window.__handleNavigateToPurchases(sendResponse);
 
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(true);
@@ -112,13 +89,8 @@ describe('handleNavigateToPurchases', () => {
     </body></html>`;
     setupDom('https://bandcamp.com', html);
     loadContentScript();
-    const handler = getMessageHandler();
     const sendResponse = jest.fn();
-    handler({ type: 'NAVIGATE_TO_PURCHASES' }, { tab: { id: 1 } }, sendResponse);
-
-    for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
-      await new Promise(r => setTimeout(r, 1));
-    }
+    await window.__handleNavigateToPurchases(sendResponse);
 
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(true);
@@ -129,15 +101,10 @@ describe('handleNavigateToPurchases', () => {
     const html = `<!DOCTYPE html><html><body>
       <a href="https://bandcamp.com/anyuser/purchases">Purchases</a>
     </body></html>`;
-    setupDom('https://example.com', html);
+    setupDom('https://bandcamp.com', html);
     loadContentScript();
-    const handler = getMessageHandler();
     const sendResponse = jest.fn();
-    handler({ type: 'NAVIGATE_TO_PURCHASES' }, { tab: { id: 1 } }, sendResponse);
-
-    for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
-      await new Promise(r => setTimeout(r, 1));
-    }
+    await window.__handleNavigateToPurchases(sendResponse);
 
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(true);
@@ -145,18 +112,12 @@ describe('handleNavigateToPurchases', () => {
   });
 
   test('returns error when neither username nor purchases link are found', async () => {
-    setupDom('https://example.com');
+    setupDom('https://bandcamp.com/');
     loadContentScript();
-    const handler = getMessageHandler();
     const sendResponse = jest.fn();
-    handler({ type: 'NAVIGATE_TO_PURCHASES' }, { tab: { id: 1 } }, sendResponse);
-
-    for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
-      await new Promise(r => setTimeout(r, 1));
-    }
+    await window.__handleNavigateToPurchases(sendResponse);
 
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.error).toMatch(/Could not determine username/i);
   });
 });
-

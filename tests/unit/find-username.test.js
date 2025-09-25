@@ -7,6 +7,12 @@ const { JSDOM } = require('jsdom');
 function loadContentScript() {
   jest.resetModules();
   delete require.cache[require.resolve('../../content/bandcamp-scraper.js')];
+  try {
+    Object.defineProperty(global.document, 'readyState', {
+      value: 'complete',
+      configurable: true
+    });
+  } catch (_) {}
   require('../../content/bandcamp-scraper.js');
 }
 
@@ -19,11 +25,9 @@ function setupDom(url, html = '<!DOCTYPE html><html><head></head><body></body></
 }
 
 describe('findUsernameOnPage', () => {
-  afterEach(() => {
-    if (global.window && typeof global.window.close === 'function') {
-      global.window.close();
-    }
-  });
+  let originalSelf;
+  beforeEach(() => { originalSelf = global.self; });
+  afterEach(() => { global.self = originalSelf; });
 
   test('extracts from bandcamp.com root path (/username)', () => {
     setupDom('https://bandcamp.com/carlxt');
@@ -122,4 +126,3 @@ describe('findUsernameOnPage', () => {
     expect(window.findUsernameOnPage()).toBe(null);
   });
 });
-
