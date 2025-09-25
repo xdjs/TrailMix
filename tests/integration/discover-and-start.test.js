@@ -46,6 +46,7 @@ describe('Integration: DISCOVER_AND_START', () => {
     // Each tabs.create returns a different id
     let nextId = 1000;
     chrome.tabs.create.mockImplementation(async ({ url }) => ({ id: nextId++, url }));
+    chrome.tabs.remove = jest.fn().mockResolvedValue();
 
     // Load background service worker fresh
     delete require.cache[require.resolve('../../background/service-worker.js')];
@@ -68,12 +69,24 @@ describe('Integration: DISCOVER_AND_START', () => {
     expect(keepAlive).toBe(true);
 
     // Wait until tabs.create has been called up to concurrency limit
-    for (let i = 0; i < 20 && chrome.tabs.create.mock.calls.length < 3; i++) {
-      await new Promise(r => setTimeout(r, 0));
+    for (let i = 0; i < 50 && chrome.tabs.create.mock.calls.length < 3; i++) {
+      await new Promise(r => setTimeout(r, 1));
     }
 
     // processNextDownload should start up to 3 tabs initially
     expect(chrome.tabs.create).toHaveBeenCalledTimes(3);
+
+    // Simulate completion of first tab via tabs.onUpdated
+    const onUpdated = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+    // Invoke event for first created tab id
+    const firstTabId = chrome.tabs.create.mock.results[0].value.id || 1000; // fallback
+    onUpdated(firstTabId, { url: 'https://bandcamp.com/thank-you', status: 'complete' }, { id: firstTabId, url: 'https://bandcamp.com/thank-you', status: 'complete' });
+
+    // After completion, a 4th tab should be created for the next queued item
+    for (let i = 0; i < 50 && chrome.tabs.create.mock.calls.length < 4; i++) {
+      await new Promise(r => setTimeout(r, 1));
+    }
+    expect(chrome.tabs.create).toHaveBeenCalledTimes(4);
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ status: 'started', totalPurchases: 4 }));
   });
 });

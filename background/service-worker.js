@@ -382,15 +382,20 @@ async function startParallelDownload(purchase) {
 
       console.log('Created tab', tab.id, 'for', purchase.title);
 
-      // Track this download
+      // Track this download with a safety timeout
+      const timeoutId = setTimeout(() => {
+        try { downloadState.activeDownloads.delete(tab.id); } catch (_) {}
+        downloadState.failed++;
+        broadcastProgress();
+        setTimeout(() => processNextDownload(), 500);
+      }, 120000); // 2 minutes
+
       downloadState.activeDownloads.set(tab.id, {
         purchase: purchase,
         tabId: tab.id,
-        status: 'downloading'
+        status: 'downloading',
+        timeoutId
       });
-
-      // Monitor the tab for download completion
-      monitorDownloadTab(tab.id, purchase);
     } else {
       // Fallback to old method if no download URL
       await downloadAlbum(purchase);
@@ -404,75 +409,33 @@ async function startParallelDownload(purchase) {
   }
 }
 
-// Monitor a download tab for completion
-async function monitorDownloadTab(tabId, purchase) {
-  try {
-    // Initial delay to let page load
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Send message to content script to monitor download page
+// Event-based monitoring of download tabs
+if (chrome.tabs && chrome.tabs.onUpdated && typeof chrome.tabs.onUpdated.addListener === 'function') {
+  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     try {
-      const response = await chrome.tabs.sendMessage(tabId, {
-        type: 'MONITOR_DOWNLOAD_PAGE'
-      });
+      if (!downloadState.activeDownloads.has(tabId)) return;
 
-      if (response && response.success) {
-        console.log(`Download monitoring started for ${purchase.title}: ${response.status}`);
+      const entry = downloadState.activeDownloads.get(tabId);
+      const url = (changeInfo && changeInfo.url) || (tab && tab.url) || '';
+      const status = (changeInfo && changeInfo.status) || (tab && tab.status) || '';
+
+      const isCompleteUrl = url.includes('download_complete') || url.includes('thank-you') || url.includes('.zip') || url.startsWith('blob:');
+      const isCompleteStatus = status === 'complete';
+
+      if (isCompleteUrl || isCompleteStatus) {
+        // small delay to ensure download starts
+        await new Promise(r => setTimeout(r, 1000));
+        try { await chrome.tabs.remove(tabId); } catch (_) {}
+        try {
+          if (entry && entry.timeoutId) clearTimeout(entry.timeoutId);
+          downloadState.activeDownloads.delete(tabId);
+        } catch (_) {}
+        handleDownloadComplete(tabId, entry ? entry.purchase : { title: 'Unknown' });
       }
-    } catch (err) {
-      console.log('Content script not ready yet, will retry...');
+    } catch (e) {
+      // ignore
     }
-
-    // Monitor the tab for changes
-    const checkInterval = setInterval(async () => {
-      try {
-        const tab = await chrome.tabs.get(tabId);
-
-        // Check if tab still exists
-        if (!tab) {
-          clearInterval(checkInterval);
-          handleDownloadComplete(tabId, purchase);
-          return;
-        }
-
-        // Check various completion indicators
-        if (tab.url && (
-          tab.url.includes('download_complete') ||
-          tab.url.includes('thank-you') ||
-          tab.url.includes('.zip') ||  // Direct download file
-          tab.url.startsWith('blob:')   // Downloaded blob
-        )) {
-          clearInterval(checkInterval);
-
-          // Wait a bit for download to fully start
-          await new Promise(resolve => setTimeout(resolve, 3000));
-
-          // Close the tab
-          try {
-            await chrome.tabs.remove(tabId);
-          } catch (e) {
-            // Tab may already be closed
-          }
-
-          handleDownloadComplete(tabId, purchase);
-        }
-      } catch (error) {
-        // Tab was likely closed
-        clearInterval(checkInterval);
-        handleDownloadComplete(tabId, purchase);
-      }
-    }, 2000); // Check every 2 seconds
-
-    // Set a timeout to prevent infinite monitoring
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      handleDownloadComplete(tabId, purchase);
-    }, 120000); // 2 minute timeout
-
-  } catch (error) {
-    console.error('Error monitoring download tab:', error);
-    handleDownloadComplete(tabId, purchase);
-  }
+  });
 }
 
 // Handle download completion

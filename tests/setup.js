@@ -32,7 +32,10 @@ global.chrome = {
     create: jest.fn(),
     remove: jest.fn(),
     get: jest.fn(),
-    update: jest.fn()
+    update: jest.fn(),
+    onUpdated: {
+      addListener: jest.fn()
+    }
   },
   downloads: {
     download: jest.fn(),
