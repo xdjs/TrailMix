@@ -202,8 +202,9 @@ async function handlePauseDownload() {
 async function handleResumeDownload() {
   try {
     const response = await sendMessageToBackground({ type: 'START_DOWNLOAD' });
-    
-    if (response.status === 'started') {
+
+    // Check for both 'resumed' (when resuming paused queue) and 'started' (fresh start)
+    if (response.status === 'resumed' || response.status === 'started') {
       elements.pauseBtn.textContent = 'Pause';
       elements.pauseBtn.onclick = handlePauseDownload;
       addLogEntry('Download resumed', 'success');
@@ -314,6 +315,17 @@ function updateProgress(stats) {
 
     if (stats.currentTrack) {
       elements.currentItem.querySelector('.current-track').textContent = stats.currentTrack;
+    }
+
+    // Update pause button state based on queue status
+    if (typeof stats.isPaused === 'boolean' && elements.pauseBtn) {
+      if (stats.isPaused) {
+        elements.pauseBtn.textContent = 'Resume';
+        elements.pauseBtn.onclick = handleResumeDownload;
+      } else if (stats.isActive) {
+        elements.pauseBtn.textContent = 'Pause';
+        elements.pauseBtn.onclick = handlePauseDownload;
+      }
     }
   }
 }
