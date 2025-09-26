@@ -46,10 +46,11 @@ async function initializePopup() {
 function setupEventListeners() {
   // Control buttons
   elements.startBtn.addEventListener('click', handleStartDownload);
-  elements.pauseBtn.addEventListener('click', handlePauseDownload);
+  // Pause button handler is set dynamically via onclick to toggle between pause/resume
+  elements.pauseBtn.onclick = handlePauseDownload; // Initial state is pause
   elements.stopBtn.addEventListener('click', handleStopDownload);
   elements.loginBtn.addEventListener('click', handleLogin);
-  
+
   // Settings
   elements.selectLocationBtn.addEventListener('click', handleSelectLocation);
   elements.downloadDelay.addEventListener('change', handleSettingsChange);
@@ -64,7 +65,7 @@ async function loadInitialState() {
   try {
     // Get extension status and settings
     const response = await sendMessageToBackground({ type: 'GET_EXTENSION_STATUS' });
-    
+
     if (response.settings) {
       // Load settings into UI
       elements.downloadLocation.value = response.settings.downloadLocation || 'Browser default';
@@ -72,7 +73,39 @@ async function loadInitialState() {
       elements.embedMetadata.checked = response.settings.metadataEmbedding !== false;
       elements.embedArtwork.checked = response.settings.artworkEmbedding !== false;
     }
-    
+
+    // Restore download state if there's an active or paused queue
+    if (response.downloadState) {
+      const state = response.downloadState;
+
+      if (state.isActive || state.isPaused || state.queueSize > 0) {
+        // Show progress section since we have an active/paused queue
+        elements.progressSection.style.display = 'block';
+        elements.startBtn.style.display = 'none';
+        elements.pauseBtn.style.display = 'inline-block';
+        elements.stopBtn.style.display = 'inline-block';
+
+        // Update progress display
+        if (state.total > 0) {
+          const percentage = Math.round((state.completed / state.total) * 100);
+          elements.progressFill.style.width = `${percentage}%`;
+          elements.progressText.textContent = `${percentage}%`;
+          elements.progressStats.textContent = `${state.completed} of ${state.total} albums`;
+        }
+
+        // Set correct button state
+        if (state.isPaused) {
+          elements.pauseBtn.textContent = 'Resume';
+          elements.pauseBtn.onclick = handleResumeDownload;
+          addLogEntry(`Queue restored: ${state.queueSize} items pending, ${state.completed} completed`, 'info');
+        } else if (state.isActive) {
+          elements.pauseBtn.textContent = 'Pause';
+          elements.pauseBtn.onclick = handlePauseDownload;
+          addLogEntry(`Downloads in progress: ${state.completed} of ${state.total} completed`, 'info');
+        }
+      }
+    }
+
     addLogEntry('Extension loaded successfully');
   } catch (error) {
     addLogEntry('Failed to load extension state', 'error');
@@ -202,8 +235,9 @@ async function handlePauseDownload() {
 async function handleResumeDownload() {
   try {
     const response = await sendMessageToBackground({ type: 'START_DOWNLOAD' });
-    
-    if (response.status === 'started') {
+
+    // Check for both 'resumed' (when resuming paused queue) and 'started' (fresh start)
+    if (response.status === 'resumed' || response.status === 'started') {
       elements.pauseBtn.textContent = 'Pause';
       elements.pauseBtn.onclick = handlePauseDownload;
       addLogEntry('Download resumed', 'success');
@@ -314,6 +348,17 @@ function updateProgress(stats) {
 
     if (stats.currentTrack) {
       elements.currentItem.querySelector('.current-track').textContent = stats.currentTrack;
+    }
+
+    // Update pause button state based on queue status
+    if (typeof stats.isPaused === 'boolean' && elements.pauseBtn) {
+      if (stats.isPaused) {
+        elements.pauseBtn.textContent = 'Resume';
+        elements.pauseBtn.onclick = handleResumeDownload;
+      } else if (stats.isActive) {
+        elements.pauseBtn.textContent = 'Pause';
+        elements.pauseBtn.onclick = handlePauseDownload;
+      }
     }
   }
 }
