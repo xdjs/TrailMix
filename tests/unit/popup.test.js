@@ -122,37 +122,18 @@ describe('Popup UI', () => {
       const startBtn = document.querySelector('#startBtn');
       const pauseBtn = document.querySelector('#pauseBtn');
       const stopBtn = document.querySelector('#stopBtn');
-      
+
       expect(controlsSection).toBeTruthy();
       expect(startBtn).toBeTruthy();
       expect(pauseBtn).toBeTruthy();
       expect(stopBtn).toBeTruthy();
-      
+
       // Check initial states
       expect(startBtn.disabled).toBe(true);
       expect(pauseBtn.style.display).toBe('none');
       expect(stopBtn.style.display).toBe('none');
     });
-    
-    test('should have settings section', () => {
-      const settingsSection = document.querySelector('.settings-section');
-      const downloadLocation = document.querySelector('#downloadLocation');
-      const downloadDelay = document.querySelector('#downloadDelay');
-      const embedMetadata = document.querySelector('#embedMetadata');
-      const embedArtwork = document.querySelector('#embedArtwork');
-      
-      expect(settingsSection).toBeTruthy();
-      expect(downloadLocation).toBeTruthy();
-      expect(downloadDelay).toBeTruthy();
-      expect(embedMetadata).toBeTruthy();
-      expect(embedArtwork).toBeTruthy();
-      
-      // Check default values
-      expect(downloadDelay.value).toBe('2');
-      expect(embedMetadata.checked).toBe(true);
-      expect(embedArtwork.checked).toBe(true);
-    });
-    
+
     test('should have activity log section', () => {
       const logSection = document.querySelector('.log-section');
       const logContent = document.querySelector('#logContent');
@@ -174,27 +155,28 @@ describe('Popup UI', () => {
   });
   
   describe('Accessibility', () => {
-    test('should have proper label associations', () => {
-      const downloadLocationLabel = document.querySelector('label[for="downloadLocation"]');
-      const downloadDelayLabel = document.querySelector('label[for="downloadDelay"]');
-      
-      expect(downloadLocationLabel).toBeTruthy();
-      expect(downloadDelayLabel).toBeTruthy();
-    });
-    
     test('should have semantic HTML structure', () => {
       const header = document.querySelector('header');
       const sections = document.querySelectorAll('section');
       const footer = document.querySelector('footer');
-      
+
       expect(header).toBeTruthy();
       expect(sections.length).toBeGreaterThan(0);
       expect(footer).toBeTruthy();
     });
-    
+
+    test('should expose activity log summary for accessibility', () => {
+      const logDetails = document.querySelector('.log-section details');
+      const logSummary = document.querySelector('.log-section summary');
+
+      expect(logDetails).toBeTruthy();
+      expect(logSummary).toBeTruthy();
+      expect(logSummary.textContent).toContain('Activity Log');
+    });
+
     test('should have proper button types', () => {
       const buttons = document.querySelectorAll('button');
-      
+
       buttons.forEach(button => {
         // All buttons should have type="button" or be submit buttons
         const type = button.getAttribute('type');
@@ -202,26 +184,23 @@ describe('Popup UI', () => {
       });
     });
   });
-  
-  describe('Form Elements', () => {
-    test('should have proper input types and attributes', () => {
-      const downloadLocation = document.querySelector('#downloadLocation');
-      const downloadDelay = document.querySelector('#downloadDelay');
-      
-      expect(downloadLocation.type).toBe('text');
-      expect(downloadLocation.readOnly).toBe(true);
-      
-      expect(downloadDelay.type).toBe('number');
-      expect(downloadDelay.min).toBe('1');
-      expect(downloadDelay.max).toBe('60');
+
+  describe('Simplified Layout', () => {
+    test('should not include deprecated settings elements', () => {
+      expect(document.querySelector('.settings-section')).toBeNull();
+      expect(document.querySelector('#downloadDelay')).toBeNull();
+      expect(document.querySelector('#embedMetadata')).toBeNull();
+      expect(document.querySelector('#embedArtwork')).toBeNull();
     });
-    
-    test('should have checkboxes for boolean settings', () => {
-      const embedMetadata = document.querySelector('#embedMetadata');
-      const embedArtwork = document.querySelector('#embedArtwork');
-      
-      expect(embedMetadata.type).toBe('checkbox');
-      expect(embedArtwork.type).toBe('checkbox');
+
+    test('should display log controls within details element', () => {
+      const logDetails = document.querySelector('.log-section details');
+      const logContent = document.querySelector('.log-section .log-content');
+      const clearLogBtn = document.querySelector('#clearLogBtn');
+
+      expect(logDetails).toBeTruthy();
+      expect(logContent).toBeTruthy();
+      expect(clearLogBtn).toBeTruthy();
     });
   });
   
