@@ -94,6 +94,10 @@ const chromeMock = {
       addListener: jest.fn(),
       removeListener: jest.fn()
     },
+    onDeterminingFilename: {
+      addListener: jest.fn(),
+      removeListener: jest.fn()
+    },
     search: jest.fn(),
     cancel: jest.fn()
   },
@@ -121,4 +125,3 @@ const chromeMock = {
 };
 
 module.exports = chromeMock;
-
