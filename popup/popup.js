@@ -46,10 +46,11 @@ async function initializePopup() {
 function setupEventListeners() {
   // Control buttons
   elements.startBtn.addEventListener('click', handleStartDownload);
-  elements.pauseBtn.addEventListener('click', handlePauseDownload);
+  // Pause button handler is set dynamically via onclick to toggle between pause/resume
+  elements.pauseBtn.onclick = handlePauseDownload; // Initial state is pause
   elements.stopBtn.addEventListener('click', handleStopDownload);
   elements.loginBtn.addEventListener('click', handleLogin);
-  
+
   // Settings
   elements.selectLocationBtn.addEventListener('click', handleSelectLocation);
   elements.downloadDelay.addEventListener('change', handleSettingsChange);

@@ -205,13 +205,20 @@ downloadQueue.addEventListener('job-completed', (event) => {
 
 downloadQueue.addEventListener('job-failed', (event) => {
   const queueItem = event.detail;
-  if (queueItem && queueItem.job && queueItem.job.purchase) {
-    downloadState.failed++;
-    console.error(`Download failed: ${queueItem.job.purchase.title}`, queueItem.error);
-  } else {
-    downloadState.failed++;
-    console.error('Download failed', event.detail);
+  const error = queueItem?.error || queueItem?.job?.error;
+  const isCancellation = error && error.message === 'Download cancelled';
+
+  // Don't count cancellations as failures
+  if (!isCancellation) {
+    if (queueItem && queueItem.job && queueItem.job.purchase) {
+      downloadState.failed++;
+      console.error(`Download failed: ${queueItem.job.purchase.title}`, error);
+    } else {
+      downloadState.failed++;
+      console.error('Download failed', event.detail);
+    }
   }
+
   broadcastProgress();
   saveQueueState();
 });
@@ -348,6 +355,33 @@ async function handleStartDownload(data, sendResponse) {
 }
 
 function handlePauseDownload(sendResponse) {
+  // Cancel the current active download if exists and re-enqueue it
+  if (globalDownloadManager && globalDownloadManager.activeDownload) {
+    console.log('Cancelling active download before pausing');
+
+    // Re-enqueue the current job at the front of the queue before cancelling
+    if (currentDownloadJob) {
+      console.log(`Re-enqueueing cancelled download: ${currentDownloadJob.purchase.title}`);
+      // Reset the job status so it can be downloaded again
+      currentDownloadJob.status = DownloadJob.STATUS.PENDING;
+      currentDownloadJob.startTime = null;
+      currentDownloadJob.endTime = null;
+      // Reset progress to initial object structure (not a number!)
+      currentDownloadJob.progress = {
+        bytesReceived: 0,
+        totalBytes: 0,
+        percentComplete: 0,
+        downloadSpeed: 0
+      };
+      // Add to front of queue with HIGH priority (higher numbers = higher priority)
+      // Note: currentDownloadJob is already a DownloadJob instance
+      downloadQueue.enqueue(currentDownloadJob, 1000);
+    }
+
+    globalDownloadManager.cancel();
+  }
+
+  // Pause the queue to prevent new downloads from starting
   downloadQueue.pause();
   downloadState.isPaused = true;
   saveQueueState();
@@ -355,6 +389,13 @@ function handlePauseDownload(sendResponse) {
 }
 
 function handleStopDownload(sendResponse) {
+  // Cancel the current active download if exists
+  if (globalDownloadManager && globalDownloadManager.activeDownload) {
+    console.log('Cancelling active download before stopping');
+    globalDownloadManager.cancel();
+  }
+
+  // Clear the queue and reset state
   downloadQueue.clear();
   downloadState.isActive = false;
   downloadState.isPaused = false;
@@ -566,18 +607,27 @@ async function processNextDownload() {
       downloadQueue.completeCurrentJob(result);
 
     } catch (error) {
-      // Mark job as failed
-      job.fail(error);
-      downloadQueue.failCurrentJob(error);
+      // Check if this was a cancellation (not an actual error)
+      const isCancellation = error && error.message === 'Download cancelled';
 
-      // Check if job can be retried
-      if (job.canBeRetried()) {
-        const delay = job.getRetryDelay();
-        console.log(`Retrying ${job.purchase.title} after ${delay}ms`);
-        setTimeout(() => {
-          job.incrementRetry();
-          downloadQueue.enqueue(job, job.priority + 1); // Higher priority for retries
-        }, delay);
+      if (isCancellation) {
+        // Don't mark as failed or retry for user-initiated cancellations
+        console.log(`Download cancelled: ${job.purchase.title}`);
+        // The job has already been re-enqueued by handlePauseDownload
+      } else {
+        // Mark job as failed for actual errors
+        job.fail(error);
+        downloadQueue.failCurrentJob(error);
+
+        // Check if job can be retried
+        if (job.canBeRetried()) {
+          const delay = job.getRetryDelay();
+          console.log(`Retrying ${job.purchase.title} after ${delay}ms`);
+          setTimeout(() => {
+            job.incrementRetry();
+            downloadQueue.enqueue(job, job.priority + 1); // Higher priority for retries
+          }, delay);
+        }
       }
     }
 

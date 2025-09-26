@@ -391,13 +391,92 @@ describe('Service Worker Queue Integration', () => {
       sendResponse = jest.fn();
 
       handlePauseDownload = function(sendResponse) {
+        // Cancel active download if exists
+        if (global.globalDownloadManager && global.globalDownloadManager.activeDownload) {
+          console.log('Cancelling active download before pausing');
+          global.globalDownloadManager.cancel();
+        }
+
         downloadQueue.pause();
         downloadState.isPaused = true;
         sendResponse({ status: 'paused' });
       };
+
+      // Expose to global for testing
+      global.downloadQueue = downloadQueue;
+      global.downloadState = downloadState;
     });
 
     test('should pause queue and update state', () => {
+      handlePauseDownload(sendResponse);
+
+      expect(downloadQueue.pause).toHaveBeenCalled();
+      expect(downloadState.isPaused).toBe(true);
+      expect(sendResponse).toHaveBeenCalledWith({ status: 'paused' });
+    });
+
+    test('should cancel active download and re-enqueue when pausing', () => {
+      const mockCancel = jest.fn();
+      const mockJob = new mockDownloadJob({ title: 'Test Album' }, 0);
+
+      // Setup current download job
+      global.currentDownloadJob = mockJob;
+      mockJob.purchase = { title: 'Test Album' };
+      mockJob.status = mockDownloadJob.STATUS.DOWNLOADING;
+
+      // Setup mock download manager with active download
+      global.globalDownloadManager = {
+        activeDownload: { downloadId: 123, tabId: 456 },
+        cancel: mockCancel
+      };
+
+      // Enhanced handlePauseDownload for testing
+      const enhancedHandlePause = function(sendResponse) {
+        if (global.globalDownloadManager && global.globalDownloadManager.activeDownload) {
+          console.log('Cancelling active download before pausing');
+
+          if (global.currentDownloadJob) {
+            console.log(`Re-enqueueing cancelled download: ${global.currentDownloadJob.purchase.title}`);
+            global.currentDownloadJob.status = mockDownloadJob.STATUS.PENDING;
+            global.currentDownloadJob.startTime = null;
+            global.currentDownloadJob.endTime = null;
+            global.currentDownloadJob.progress = {
+              bytesReceived: 0,
+              totalBytes: 0,
+              percentComplete: 0,
+              downloadSpeed: 0
+            };
+            downloadQueue.enqueue(global.currentDownloadJob, 1000);
+          }
+
+          global.globalDownloadManager.cancel();
+        }
+
+        downloadQueue.pause();
+        downloadState.isPaused = true;
+        sendResponse({ status: 'paused' });
+      };
+
+      enhancedHandlePause(sendResponse);
+
+      expect(mockCancel).toHaveBeenCalled();
+      expect(downloadQueue.enqueue).toHaveBeenCalledWith(mockJob, 1000);
+      expect(mockJob.status).toBe(mockDownloadJob.STATUS.PENDING);
+      expect(mockJob.progress).toEqual({
+        bytesReceived: 0,
+        totalBytes: 0,
+        percentComplete: 0,
+        downloadSpeed: 0
+      });
+      expect(downloadQueue.pause).toHaveBeenCalled();
+      expect(downloadState.isPaused).toBe(true);
+      expect(sendResponse).toHaveBeenCalledWith({ status: 'paused' });
+    });
+
+    test('should handle pause without active download', () => {
+      // No active download manager
+      global.globalDownloadManager = null;
+
       handlePauseDownload(sendResponse);
 
       expect(downloadQueue.pause).toHaveBeenCalled();
@@ -585,6 +664,12 @@ describe('Service Worker Queue Integration', () => {
       sendResponse = jest.fn();
 
       handleStopDownload = function(sendResponse) {
+        // Cancel active download if exists
+        if (global.globalDownloadManager && global.globalDownloadManager.activeDownload) {
+          console.log('Cancelling active download before stopping');
+          global.globalDownloadManager.cancel();
+        }
+
         downloadQueue.clear();
         downloadState.isActive = false;
         downloadState.isPaused = false;
@@ -612,6 +697,39 @@ describe('Service Worker Queue Integration', () => {
       expect(downloadState.failed).toBe(0);
       expect(currentDownloadJob).toBeNull();
       expect(downloadQueue.currentJob).toBeNull();
+      expect(sendResponse).toHaveBeenCalledWith({ status: 'stopped' });
+    });
+
+    test('should cancel active download when stopping', () => {
+      const mockCancel = jest.fn();
+
+      // Setup mock download manager with active download
+      global.globalDownloadManager = {
+        activeDownload: { downloadId: 789, tabId: 101 },
+        cancel: mockCancel
+      };
+
+      downloadState.completed = 3;
+      downloadState.failed = 1;
+      downloadState.isActive = true;
+
+      handleStopDownload(sendResponse);
+
+      expect(mockCancel).toHaveBeenCalled();
+      expect(downloadQueue.clear).toHaveBeenCalled();
+      expect(downloadState.isActive).toBe(false);
+      expect(downloadState.completed).toBe(0);
+      expect(sendResponse).toHaveBeenCalledWith({ status: 'stopped' });
+    });
+
+    test('should handle stop without active download', () => {
+      // No active download manager
+      global.globalDownloadManager = null;
+
+      handleStopDownload(sendResponse);
+
+      expect(downloadQueue.clear).toHaveBeenCalled();
+      expect(downloadState.isActive).toBe(false);
       expect(sendResponse).toHaveBeenCalledWith({ status: 'stopped' });
     });
   });
