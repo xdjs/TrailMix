@@ -24,11 +24,6 @@ async function initializePopup() {
     startBtn: document.getElementById('startBtn'),
     pauseBtn: document.getElementById('pauseBtn'),
     stopBtn: document.getElementById('stopBtn'),
-    downloadLocation: document.getElementById('downloadLocation'),
-    selectLocationBtn: document.getElementById('selectLocationBtn'),
-    downloadDelay: document.getElementById('downloadDelay'),
-    embedMetadata: document.getElementById('embedMetadata'),
-    embedArtwork: document.getElementById('embedArtwork'),
     logContent: document.getElementById('logContent'),
     clearLogBtn: document.getElementById('clearLogBtn')
   };
@@ -51,12 +46,6 @@ function setupEventListeners() {
   elements.stopBtn.addEventListener('click', handleStopDownload);
   elements.loginBtn.addEventListener('click', handleLogin);
 
-  // Settings
-  elements.selectLocationBtn.addEventListener('click', handleSelectLocation);
-  elements.downloadDelay.addEventListener('change', handleSettingsChange);
-  elements.embedMetadata.addEventListener('change', handleSettingsChange);
-  elements.embedArtwork.addEventListener('change', handleSettingsChange);
-  
   // Log
   elements.clearLogBtn.addEventListener('click', handleClearLog);
 }
@@ -66,13 +55,7 @@ async function loadInitialState() {
     // Get extension status and settings
     const response = await sendMessageToBackground({ type: 'GET_EXTENSION_STATUS' });
 
-    if (response.settings) {
-      // Load settings into UI
-      elements.downloadLocation.value = response.settings.downloadLocation || 'Browser default';
-      elements.downloadDelay.value = response.settings.downloadDelay / 1000 || 2;
-      elements.embedMetadata.checked = response.settings.metadataEmbedding !== false;
-      elements.embedArtwork.checked = response.settings.artworkEmbedding !== false;
-    }
+    // Settings are loaded but no longer displayed in UI
 
     // Restore download state if there's an active or paused queue
     if (response.downloadState) {
@@ -274,28 +257,6 @@ async function handleLogin() {
     window.close();
   } catch (error) {
     addLogEntry('Failed to open login page', 'error');
-  }
-}
-
-async function handleSelectLocation() {
-  // TODO: Implement folder selection
-  // Chrome extensions have limited file system access
-  // This will need to be implemented with downloads API
-  addLogEntry('Custom folder selection coming soon', 'warning');
-}
-
-async function handleSettingsChange() {
-  try {
-    const settings = {
-      downloadDelay: elements.downloadDelay.value * 1000,
-      metadataEmbedding: elements.embedMetadata.checked,
-      artworkEmbedding: elements.embedArtwork.checked
-    };
-    
-    await chrome.storage.local.set(settings);
-    addLogEntry('Settings saved');
-  } catch (error) {
-    addLogEntry('Failed to save settings', 'error');
   }
 }
 
