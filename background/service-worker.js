@@ -457,6 +457,20 @@ async function discoverPurchases() {
 
     if (tabs.length > 0) {
       tab = tabs[0];
+
+      // Try to ping the content script to see if it's loaded
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+        // Content script is loaded, proceed
+        console.log('Content script is responsive in existing tab');
+      } catch (error) {
+        // Content script not loaded (stale tab from previous session)
+        console.log('Content script not loaded in tab, reloading...');
+        await chrome.tabs.reload(tab.id);
+        // Wait for reload to complete
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+
       // Keep popup open: do not activate tab
       await chrome.tabs.update(tab.id, { active: false });
     } else {
@@ -480,7 +494,16 @@ async function discoverPurchases() {
         console.log('Not on purchases page, need to navigate. Current URL:', tab.url);
 
         // Send message to content script to find and navigate to purchases page
-        const navResponse = await chrome.tabs.sendMessage(tab.id, { type: 'NAVIGATE_TO_PURCHASES' });
+        let navResponse;
+        try {
+          navResponse = await chrome.tabs.sendMessage(tab.id, { type: 'NAVIGATE_TO_PURCHASES' });
+        } catch (error) {
+          // Content script might not be loaded after reload, try once more
+          console.log('Failed to connect to content script, reloading tab and retrying...');
+          await chrome.tabs.reload(tab.id);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          navResponse = await chrome.tabs.sendMessage(tab.id, { type: 'NAVIGATE_TO_PURCHASES' });
+        }
         console.log('Navigation response:', navResponse);
 
         if (navResponse.success && navResponse.purchasesUrl) {
@@ -508,7 +531,16 @@ async function discoverPurchases() {
     }
 
     // Now scrape purchases from the collection page
-    const scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
+    let scrapeResponse;
+    try {
+      scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
+    } catch (error) {
+      // Content script might not be loaded, reload and retry once
+      console.log('Failed to connect for scraping, reloading tab and retrying...');
+      await chrome.tabs.reload(tab.id);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
+    }
 
     return scrapeResponse;
   } catch (error) {

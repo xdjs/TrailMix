@@ -199,6 +199,11 @@ function setupMessageListener() {
     console.log('Content script received message:', message.type);
 
     switch (message.type) {
+      case 'PING':
+        // Simple ping response to check if content script is loaded
+        sendResponse({ success: true, message: 'Content script is ready' });
+        return false; // Synchronous response
+
       case 'NAVIGATE_TO_PURCHASES':
         handleNavigateToPurchases(sendResponse);
         return true;
