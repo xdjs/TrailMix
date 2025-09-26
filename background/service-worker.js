@@ -24,6 +24,78 @@ chrome.runtime.onStartup.addListener(() => {
   // Extension starting up
 });
 
+// Ensure all Bandcamp downloads are placed under a TrailMix subfolder
+try {
+  if (
+    typeof chrome !== 'undefined' &&
+    chrome.downloads &&
+    chrome.downloads.onDeterminingFilename &&
+    typeof chrome.downloads.onDeterminingFilename.addListener === 'function'
+  ) {
+    chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
+      try {
+        const url = item && item.url ? item.url : '';
+        // Only adjust Bandcamp CDN downloads
+        const isBandcampCdn = (() => {
+          try {
+            const u = new URL(url);
+            return u.hostname && u.hostname.endsWith('.bcbits.com');
+          } catch (_) {
+            return false;
+          }
+        })();
+
+        if (!isBandcampCdn) {
+          // Leave non-Bandcamp downloads untouched
+          return;
+        }
+
+        // Use Chrome's suggested filename when available
+        const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
+
+        // Remove any leading slashes
+        const noLeadingSlash = suggestedRaw.replace(/^\/+/, '');
+
+        // Sanitize path segments to prevent traversal and illegal characters
+        const illegalRe = /[<>:"\\|?*]/g; // keep forward slash for subfolders
+        const segments = noLeadingSlash
+          .split('/')
+          .filter(Boolean)
+          .filter(seg => seg !== '.' && seg !== '..')
+          .map(seg => seg.replace(illegalRe, '_'));
+
+        let sanitizedPath = segments.join('/');
+
+        // Fallback to URL last segment if needed
+        if (!sanitizedPath) {
+          try {
+            const last = new URL(url).pathname.split('/').filter(Boolean).pop();
+            sanitizedPath = (last || '').replace(illegalRe, '_');
+          } catch (_) {
+            // As a last resort, use timestamp-based name
+            sanitizedPath = `download-${Date.now()}`;
+          }
+        }
+
+        // Avoid double-prefixing if already under TrailMix/
+        const alreadyPrefixed = sanitizedPath.startsWith('TrailMix/');
+        const target = alreadyPrefixed ? sanitizedPath : `TrailMix/${sanitizedPath}`;
+
+        // Ask Chrome to save under the TrailMix subdirectory; Chrome will
+        // create the directory automatically if it does not exist.
+        if (typeof suggest === 'function') {
+          suggest({ filename: target, conflictAction: 'uniquify' });
+        }
+      } catch (e) {
+        // Log minimally to aid diagnostics without interrupting downloads
+        try { console.warn('[TrailMix] onDeterminingFilename error:', e && e.message ? e.message : String(e)); } catch(_) {}
+      }
+    });
+  }
+} catch (_) {
+  // Environment without downloads API (e.g., tests) — ignore
+}
+
 // Initialize extension defaults
 async function initializeExtension() {
   try {
