@@ -726,6 +726,15 @@ async function handleCheckDownloadReady(sendResponse) {
   try {
     console.log('Checking if download link is ready...');
 
+    // Extract artist and title from the download page
+    const artistElement = document.querySelector('.artist, .download-artist, .albumTitle span');
+    const titleElement = document.querySelector('.title, .download-title, .trackTitle');
+
+    const artist = DOMUtils.getTextContent(artistElement) || null;
+    const title = DOMUtils.getTextContent(titleElement) || null;
+
+    console.log('Extracted metadata from download page:', { artist, title });
+
     // Check for the download link anchor element
     // Based on the HTML structure: <a href="https://p4.bcbits.com/download/..." ...>Download</a>
     const downloadLink = document.querySelector('a[href*="bcbits.com/download"]');
@@ -735,7 +744,11 @@ async function handleCheckDownloadReady(sendResponse) {
       console.log('Download link found:', downloadLink.href);
       sendResponse({
         ready: true,
-        url: downloadLink.href
+        url: downloadLink.href,
+        metadata: {
+          artist: artist,
+          title: title
+        }
       });
     } else {
       // Check if we're still in preparing state
@@ -769,7 +782,11 @@ async function handleCheckDownloadReady(sendResponse) {
           console.log('Alternative download link found:', foundLink);
           sendResponse({
             ready: true,
-            url: foundLink
+            url: foundLink,
+            metadata: {
+              artist: artist,
+              title: title
+            }
           });
         } else {
           console.log('Download link not ready yet');

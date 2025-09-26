@@ -84,33 +84,55 @@ try {
         // Use Chrome's suggested filename when available
         const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
 
-        // Remove any leading slashes
-        const noLeadingSlash = suggestedRaw.replace(/^\/+/, '');
+        // Sanitize for filesystem
+        const illegalRe = /[<>:"\\|?*]/g;
+        const sanitizeSegment = (seg) => seg.replace(illegalRe, '_').trim();
 
-        // Sanitize path segments to prevent traversal and illegal characters
-        const illegalRe = /[<>:"\\|?*]/g; // keep forward slash for subfolders
-        const segments = noLeadingSlash
-          .split('/')
-          .filter(Boolean)
-          .filter(seg => seg !== '.' && seg !== '..')
-          .map(seg => seg.replace(illegalRe, '_'));
+        let target;
 
-        let sanitizedPath = segments.join('/');
-
-        // Fallback to URL last segment if needed
-        if (!sanitizedPath) {
+        // Check if we already have a folder structure from the download manager
+        // (it would look like "TrailMix/Artist/Album/")
+        if (suggestedRaw.startsWith('TrailMix/') && suggestedRaw.includes('/')) {
+          // We have metadata-based path from download manager
+          // Extract the original filename from the URL
+          let originalFilename = '';
           try {
-            const last = new URL(url).pathname.split('/').filter(Boolean).pop();
-            sanitizedPath = (last || '').replace(illegalRe, '_');
+            originalFilename = new URL(url).pathname.split('/').filter(Boolean).pop() || '';
           } catch (_) {
-            // As a last resort, use timestamp-based name
-            sanitizedPath = `download-${Date.now()}`;
+            originalFilename = `download-${Date.now()}`;
           }
-        }
 
-        // Avoid double-prefixing if already under TrailMix/
-        const alreadyPrefixed = sanitizedPath.startsWith('TrailMix/');
-        const target = alreadyPrefixed ? sanitizedPath : `TrailMix/${sanitizedPath}`;
+          // If the suggested path ends with /, append the filename
+          if (suggestedRaw.endsWith('/')) {
+            target = suggestedRaw + sanitizeSegment(originalFilename);
+          } else {
+            // Otherwise use as-is (might already include filename)
+            target = suggestedRaw;
+          }
+          console.log('[TrailMix] Using metadata-based path:', target);
+        } else {
+          // Fallback: No metadata, just use TrailMix/filename
+          const originalFilename = suggestedRaw.split('/').pop() || suggestedRaw;
+          let cleanFilename = sanitizeSegment(originalFilename);
+
+          if (!cleanFilename) {
+            // Last resort: use URL or timestamp
+            try {
+              const last = new URL(url).pathname.split('/').filter(Boolean).pop();
+              cleanFilename = sanitizeSegment(last || `download-${Date.now()}`);
+            } catch (_) {
+              cleanFilename = `download-${Date.now()}`;
+            }
+          }
+
+          // Check if already prefixed to avoid double-prefixing
+          if (cleanFilename.startsWith('TrailMix/')) {
+            target = cleanFilename;
+          } else {
+            target = `TrailMix/${cleanFilename}`;
+          }
+          console.log('[TrailMix] Using fallback path (no metadata):', target);
+        }
 
         // Ask Chrome to save under the TrailMix subdirectory; Chrome will
         // create the directory automatically if it does not exist.

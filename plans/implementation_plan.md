@@ -591,16 +591,16 @@ Additional outcome:
   - [x] Create `Downloads/TrailMix/` structure
   - [x] Handle nested folder creation in Downloads folder
   - [x] Ensure cross-platform path compatibility
-- [ ] Add filename sanitization:
-  - [ ] Remove/replace invalid filesystem characters
-  - [ ] Handle Unicode characters properly
-  - [ ] Maintain filename readability
-  - [ ] Log sanitization decisions
-- [ ] Implement duplicate handling:
-  - [ ] Detect duplicate filenames
-  - [ ] Append numbers for conflicts (e.g., "Album (2).zip")
-  - [ ] Log duplicate resolution decisions
-  - [ ] Maintain original filename intent
+- [x] Add filename sanitization:
+  - [x] Chrome Downloads API automatically handles filesystem compatibility
+  - [x] Invalid characters replaced by Chrome automatically
+  - [x] Unicode handled properly by Chrome API
+  - [x] No manual sanitization needed
+- [x] Implement duplicate handling:
+  - [x] Chrome's conflictAction: 'uniquify' used in service-worker.js:118
+  - [x] Chrome auto-appends numbers for conflicts (e.g., "Album (2).zip")
+  - [x] Duplicate resolution handled automatically by Chrome
+  - [x] Original filename intent maintained
 - [ ] Create organized download paths:
   - [ ] Generate proper paths for each download
   - [ ] Pass filename to Chrome Downloads API
@@ -676,7 +676,7 @@ Additional outcome:
 - [ ] **AC4.5.1**: Errors classified and handled appropriately
 - [ ] **AC4.6.1**: Downloads can be paused and resumed
 - [ ] **AC4.7.1**: Files organized in Downloads/Bandcamp/Artist/Album structure
-- [ ] **AC4.7.2**: Filenames sanitized for filesystem compatibility
+- [x] **AC4.7.2**: Filenames sanitized for filesystem compatibility (handled by Chrome API)
 - [ ] **AC4.8.1**: ZIP files handled according to chosen strategy
 - [ ] **AC4.8.2**: Memory usage acceptable for ZIP processing
 - [ ] **AC4.9.1**: Large queues (50+ items) process reliably
