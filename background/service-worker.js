@@ -9,6 +9,31 @@ importScripts('../lib/download-manager.js');
 importScripts('../lib/download-queue.js');
 importScripts('../lib/download-job.js');
 
+// Initialize global variables BEFORE any usage to avoid temporal dead zone
+// State for download management
+let downloadState = {
+  isActive: false,
+  isPaused: false,
+  purchases: [],
+  currentIndex: 0,
+  completed: 0,
+  failed: 0,
+  activeDownloads: new Map(), // Track active download tabs
+  downloadIds: new Map()       // Map downloadId -> purchase for Downloads API fallback
+};
+
+// Initialize download queue (must be before restoreQueueState call)
+let downloadQueue = new DownloadQueue();
+
+// Process reentrancy guard
+let isProcessing = false;
+
+// Global download manager instance for sequential processing
+let globalDownloadManager = null;
+
+// Current download job being processed
+let currentDownloadJob = null;
+
 // Extension lifecycle management
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
@@ -190,20 +215,8 @@ async function handleGetStatus(sendResponse) {
   }
 }
 
-// State for download management
-let downloadState = {
-  isActive: false,
-  isPaused: false,
-  purchases: [],
-  currentIndex: 0,
-  completed: 0,
-  failed: 0,
-  activeDownloads: new Map(), // Track active download tabs
-  downloadIds: new Map()       // Map downloadId -> purchase for Downloads API fallback
-};
-
-// Initialize download queue
-let downloadQueue = new DownloadQueue();
+// Variables already declared at the top of the file to avoid temporal dead zone
+// (downloadState and downloadQueue are initialized at the beginning of the file)
 
 // Set up queue event listeners
 downloadQueue.addEventListener('job-completed', (event) => {
@@ -292,14 +305,8 @@ async function restoreQueueState() {
   }
 }
 
-// Process reentrancy guard
-let isProcessing = false;
-
-// Global download manager instance for sequential processing
-let globalDownloadManager = null;
-
-// Current download job being processed
-let currentDownloadJob = null;
+// Variables already declared at the top of the file to avoid temporal dead zone
+// (isProcessing, globalDownloadManager, and currentDownloadJob are initialized at the beginning)
 
 // Download handlers
 async function handleStartDownload(data, sendResponse) {
