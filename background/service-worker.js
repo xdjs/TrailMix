@@ -4,8 +4,10 @@
  */
 
 // Service worker runs independently - no external imports needed
-// Import DownloadManager for single download functionality
+// Import required modules
 importScripts('../lib/download-manager.js');
+importScripts('../lib/download-queue.js');
+importScripts('../lib/download-job.js');
 
 // Extension lifecycle management
 chrome.runtime.onInstalled.addListener((details) => {
@@ -109,9 +111,85 @@ let downloadState = {
   completed: 0,
   failed: 0,
   activeDownloads: new Map(), // Track active download tabs
-  downloadQueue: [],           // Queue of pending downloads
   downloadIds: new Map()       // Map downloadId -> purchase for Downloads API fallback
 };
+
+// Initialize download queue
+let downloadQueue = new DownloadQueue();
+
+// Set up queue event listeners
+downloadQueue.addEventListener('job-completed', (event) => {
+  const queueItem = event.detail;
+  if (queueItem && queueItem.job && queueItem.job.purchase) {
+    downloadState.completed++;
+    console.log(`Download completed: ${queueItem.job.purchase.title} (${downloadState.completed}/${downloadState.purchases.length})`);
+  } else {
+    downloadState.completed++;
+    console.log(`Download completed (${downloadState.completed}/${downloadState.purchases.length})`);
+  }
+  broadcastProgress();
+  saveQueueState();
+});
+
+downloadQueue.addEventListener('job-failed', (event) => {
+  const queueItem = event.detail;
+  if (queueItem && queueItem.job && queueItem.job.purchase) {
+    downloadState.failed++;
+    console.error(`Download failed: ${queueItem.job.purchase.title}`, queueItem.error);
+  } else {
+    downloadState.failed++;
+    console.error('Download failed', event.detail);
+  }
+  broadcastProgress();
+  saveQueueState();
+});
+
+downloadQueue.addEventListener('queue-changed', (event) => {
+  broadcastProgress();
+  saveQueueState();
+});
+
+// Queue persistence functions
+async function saveQueueState() {
+  try {
+    const serialized = downloadQueue.serialize();
+    await chrome.storage.local.set({
+      downloadQueue: serialized,
+      downloadState: {
+        completed: downloadState.completed,
+        failed: downloadState.failed,
+        isActive: downloadState.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Failed to save queue state:', error);
+  }
+}
+
+async function restoreQueueState() {
+  try {
+    const data = await chrome.storage.local.get(['downloadQueue', 'downloadState']);
+
+    if (data.downloadQueue) {
+      downloadQueue.deserialize(data.downloadQueue);
+      console.log('Queue restored with', downloadQueue.getStats().total, 'items');
+    }
+
+    if (data.downloadState) {
+      downloadState.completed = data.downloadState.completed || 0;
+      downloadState.failed = data.downloadState.failed || 0;
+      downloadState.isActive = data.downloadState.isActive || false;
+
+      // Resume processing if there were active downloads
+      if (downloadState.isActive && !downloadQueue.isEmpty()) {
+        console.log('Resuming queue processing...');
+        processNextDownload();
+      }
+    }
+  } catch (error) {
+    console.error('Failed to restore queue state:', error);
+  }
+}
 
 // Process reentrancy guard
 let isProcessing = false;
@@ -119,15 +197,32 @@ let isProcessing = false;
 // Global download manager instance for sequential processing
 let globalDownloadManager = null;
 
+// Current download job being processed
+let currentDownloadJob = null;
+
 // Download handlers
 async function handleStartDownload(data, sendResponse) {
   try {
-    // Use purchases passed from popup if available, otherwise discover
+    // Check if we're resuming a paused queue
+    if (downloadQueue.isPaused && !downloadQueue.isEmpty()) {
+      console.log('Resuming paused queue with', downloadQueue.getStats().total, 'items');
+      downloadQueue.resume();
+      downloadState.isPaused = false;
+      downloadState.isActive = true;
+
+      // Continue processing
+      processNextDownload();
+      sendResponse({ status: 'resumed', totalPurchases: downloadState.purchases.length });
+      return;
+    }
+
+    // Otherwise, start fresh
+    let purchases = [];
     if (data && data.purchases) {
-      downloadState.purchases = data.purchases;
+      purchases = data.purchases;
     } else if (data && data.data && Array.isArray(data.data.purchases)) {
       // Accept nested payload shape as well
-      downloadState.purchases = data.data.purchases;
+      purchases = data.data.purchases;
     } else {
       // Fallback: discover purchases
       const discoveryResponse = await discoverPurchases();
@@ -135,8 +230,12 @@ async function handleStartDownload(data, sendResponse) {
         sendResponse({ status: 'failed', error: discoveryResponse.error });
         return;
       }
-      downloadState.purchases = discoveryResponse.purchases;
+      purchases = discoveryResponse.purchases;
     }
+
+    // Clear existing queue and reset state
+    downloadQueue.clear();
+    downloadState.purchases = purchases;
     downloadState.isActive = true;
     downloadState.isPaused = false;
     downloadState.currentIndex = 0;
@@ -145,21 +244,29 @@ async function handleStartDownload(data, sendResponse) {
 
     // Diagnostics summary
     try {
-      const total = Array.isArray(downloadState.purchases) ? downloadState.purchases.length : 0;
-      const withDirectUrl = downloadState.purchases.filter(p => p && typeof p.downloadUrl === 'string' && p.downloadUrl.startsWith('http')).length;
+      const total = Array.isArray(purchases) ? purchases.length : 0;
+      const withDirectUrl = purchases.filter(p => p && typeof p.downloadUrl === 'string' && p.downloadUrl.startsWith('http')).length;
       const withoutDirectUrl = total - withDirectUrl;
       console.log(`[TrailMix] Purchases summary: total=${total}, with downloadUrl=${withDirectUrl}, without=${withoutDirectUrl}`);
     } catch (_) {}
 
     console.log('Download state initialized:', {
       isActive: downloadState.isActive,
-      total: downloadState.purchases.length,
+      total: purchases.length,
       currentIndex: downloadState.currentIndex
     });
-    console.log('About to call processNextDownload()...');
 
-    // Start downloading
-    await processNextDownload();
+    // Add all purchases to queue as DownloadJobs
+    const jobs = purchases.map((purchase, index) => ({
+      job: new DownloadJob(purchase, 0), // Priority 0 for normal downloads
+      priority: 0
+    }));
+    downloadQueue.enqueueBatch(jobs);
+
+    console.log('About to start processing queue...');
+
+    // Start processing the queue
+    processNextDownload();
 
     console.log('processNextDownload() completed');
     sendResponse({ status: 'started', totalPurchases: downloadState.purchases.length });
@@ -169,13 +276,20 @@ async function handleStartDownload(data, sendResponse) {
 }
 
 function handlePauseDownload(sendResponse) {
+  downloadQueue.pause();
   downloadState.isPaused = true;
+  saveQueueState();
   sendResponse({ status: 'paused' });
 }
 
 function handleStopDownload(sendResponse) {
+  downloadQueue.clear();
   downloadState.isActive = false;
   downloadState.isPaused = false;
+  downloadState.completed = 0;
+  downloadState.failed = 0;
+  currentDownloadJob = null;
+  saveQueueState();
   sendResponse({ status: 'stopped' });
 }
 
@@ -270,7 +384,11 @@ async function handleDiscoverAndStart(sendResponse) {
     }
 
     // Seed state similar to handleStartDownload
-    downloadState.purchases = Array.isArray(discoveryResponse.purchases) ? discoveryResponse.purchases : [];
+    const purchases = Array.isArray(discoveryResponse.purchases) ? discoveryResponse.purchases : [];
+
+    // Clear existing queue and reset state
+    downloadQueue.clear();
+    downloadState.purchases = purchases;
     downloadState.isActive = true;
     downloadState.isPaused = false;
     downloadState.currentIndex = 0;
@@ -278,16 +396,25 @@ async function handleDiscoverAndStart(sendResponse) {
     downloadState.failed = 0;
 
     try {
-      const total = downloadState.purchases.length;
-      const withDirectUrl = downloadState.purchases.filter(p => p && typeof p.downloadUrl === 'string' && p.downloadUrl.startsWith('http')).length;
+      const total = purchases.length;
+      const withDirectUrl = purchases.filter(p => p && typeof p.downloadUrl === 'string' && p.downloadUrl.startsWith('http')).length;
       const withoutDirectUrl = total - withDirectUrl;
       console.log(`[TrailMix] DISCOVER_AND_START: total=${total}, with downloadUrl=${withDirectUrl}, without=${withoutDirectUrl}`);
     } catch (_) {}
 
-    // Kick off downloads
-    await processNextDownload();
+    // Add all purchases to queue as DownloadJobs
+    const jobs = purchases.map((purchase, index) => ({
+      job: new DownloadJob(purchase, 0), // Priority 0 for normal downloads
+      priority: 0
+    }));
+    downloadQueue.enqueueBatch(jobs);
 
-    sendResponse({ status: 'started', totalPurchases: downloadState.purchases.length });
+    console.log('Added', purchases.length, 'jobs to queue. Queue size:', downloadQueue.getStats().total);
+
+    // Kick off downloads
+    processNextDownload();
+
+    sendResponse({ status: 'started', totalPurchases: purchases.length });
   } catch (error) {
     console.error('Error in DISCOVER_AND_START:', error);
     sendResponse({ status: 'failed', error: error.message });
@@ -296,10 +423,15 @@ async function handleDiscoverAndStart(sendResponse) {
 
 // Process downloads sequentially using DownloadManager
 async function processNextDownload() {
-  console.log('processNextDownload called. Active:', downloadState.isActive, 'Paused:', downloadState.isPaused);
-  console.log('Current index:', downloadState.currentIndex, 'Total purchases:', downloadState.purchases.length);
+  console.log('processNextDownload called. Active:', downloadState.isActive, 'Paused:', downloadQueue.isPaused);
 
-  if (!downloadState.isActive || downloadState.isPaused) {
+  if (!downloadState.isActive) {
+    console.log('Downloads not active, stopping');
+    return;
+  }
+
+  if (downloadQueue.isPaused) {
+    console.log('Queue is paused, stopping');
     return;
   }
 
@@ -308,75 +440,106 @@ async function processNextDownload() {
   isProcessing = true;
 
   try {
-    // Check if we have more items to download
-    if (downloadState.currentIndex < downloadState.purchases.length) {
-      const purchase = downloadState.purchases[downloadState.currentIndex];
-      downloadState.currentIndex++;
+    // Get next job from queue
+    console.log('Queue stats before dequeue:', downloadQueue.getStats());
+    const queueItem = downloadQueue.dequeue();
 
-      console.log(`Starting download ${downloadState.currentIndex} of ${downloadState.purchases.length}: ${purchase.title}`);
-
-      // Create download manager if not exists
-      if (!globalDownloadManager) {
-        globalDownloadManager = new DownloadManager();
-
-        // Set up progress callback
-        globalDownloadManager.onProgress = (progress) => {
-          console.log(`Download progress: ${progress.percentComplete}%`);
-          broadcastProgress();
-        };
-      }
-
-      try {
-        // Ensure we have a download URL before delegating to the download manager
-        const downloadUrl = await resolveDownloadUrlForPurchase(purchase);
-        if (downloadUrl) {
-          purchase.downloadUrl = downloadUrl;
-        }
-
-        // Download using DownloadManager (sequential - one at a time)
-        await globalDownloadManager.download(purchase);
-
-        // Success
-        downloadState.completed++;
-        console.log(`Download completed: ${purchase.title} (${downloadState.completed}/${downloadState.purchases.length})`);
-
-      } catch (error) {
-        // Failed
-        downloadState.failed++;
-        console.error(`Download failed for ${purchase.title}:`, error);
-      }
-
-      // Broadcast progress
-      broadcastProgress();
-
-      // Process next item after a short delay
-      setTimeout(() => {
-        isProcessing = false;
-        processNextDownload();
-      }, 1000);
-
-    } else {
-      // All downloads complete
+    if (!queueItem) {
+      // Queue is empty, all downloads complete
       downloadState.isActive = false;
-      console.log(`All downloads complete: ${downloadState.completed} successful, ${downloadState.failed} failed`);
+      console.log(`Queue is empty. All downloads complete: ${downloadState.completed} successful, ${downloadState.failed} failed`);
       broadcastProgress();
       isProcessing = false;
+      return;
     }
+
+    // Create DownloadJob from queue item
+    const job = queueItem.job instanceof DownloadJob
+      ? queueItem.job
+      : DownloadJob.deserialize(queueItem.job);
+
+    currentDownloadJob = job;
+    downloadQueue.currentJob = queueItem; // Set the queue's current job
+    console.log(`Starting download: ${job.purchase.title}`);
+
+    // Create download manager if not exists
+    if (!globalDownloadManager) {
+      globalDownloadManager = new DownloadManager();
+
+      // Set up progress callback
+      globalDownloadManager.onProgress = (progress) => {
+        if (currentDownloadJob) {
+          currentDownloadJob.updateProgress(progress);
+        }
+        console.log(`Download progress: ${progress.percentComplete}%`);
+        broadcastProgress();
+      };
+    }
+
+    try {
+      // Start the job
+      job.start();
+
+      // Ensure we have a download URL before delegating to the download manager
+      const downloadUrl = await resolveDownloadUrlForPurchase(job.purchase);
+      if (downloadUrl) {
+        job.purchase.downloadUrl = downloadUrl;
+      }
+
+      // Download using DownloadManager (sequential - one at a time)
+      const result = await globalDownloadManager.download(job.purchase);
+
+      // Mark job as completed
+      job.complete(result);
+      downloadQueue.completeCurrentJob(result);
+
+    } catch (error) {
+      // Mark job as failed
+      job.fail(error);
+      downloadQueue.failCurrentJob(error);
+
+      // Check if job can be retried
+      if (job.canBeRetried()) {
+        const delay = job.getRetryDelay();
+        console.log(`Retrying ${job.purchase.title} after ${delay}ms`);
+        setTimeout(() => {
+          job.incrementRetry();
+          downloadQueue.enqueue(job, job.priority + 1); // Higher priority for retries
+        }, delay);
+      }
+    }
+
+    currentDownloadJob = null;
+    downloadQueue.currentJob = null; // Clear the queue's current job
+
+    // Process next item after a short delay (unless paused)
+    setTimeout(() => {
+      isProcessing = false;
+      if (!downloadQueue.isPaused) {
+        processNextDownload();
+      }
+    }, 1000);
+
   } catch (error) {
     console.error('Error in processNextDownload:', error);
     isProcessing = false;
+    currentDownloadJob = null;
+    downloadQueue.currentJob = null;
   }
 }
 
 // Broadcast progress to popup
 function broadcastProgress() {
+  const queueStats = downloadQueue.getStats();
   const progress = {
     total: downloadState.purchases.length,
     completed: downloadState.completed,
     failed: downloadState.failed,
-    active: globalDownloadManager && globalDownloadManager.activeDownload ? 1 : 0,
+    active: currentDownloadJob ? 1 : 0,
     isActive: downloadState.isActive,
-    isPaused: downloadState.isPaused
+    isPaused: downloadQueue.isPaused,
+    queueSize: queueStats.total,
+    currentJob: currentDownloadJob ? currentDownloadJob.getStatusText() : null
   };
 
   // Send to all extension views (popup, etc)
