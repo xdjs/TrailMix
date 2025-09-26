@@ -16,13 +16,19 @@ chrome.runtime.onInstalled.addListener((details) => {
     initializeExtension();
   } else if (details.reason === 'update') {
     // Extension updated from previousVersion
+    // Restore queue state after update
+    restoreQueueState();
   }
 });
 
 // Register startup listener
 chrome.runtime.onStartup.addListener(() => {
-  // Extension starting up
+  // Extension starting up - restore persisted queue
+  restoreQueueState();
 });
+
+// Also restore on service worker initialization (for refresh/reload)
+restoreQueueState();
 
 // Ensure all Bandcamp downloads are placed under a TrailMix subfolder
 try {
@@ -165,9 +171,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleGetStatus(sendResponse) {
   try {
     const settings = await chrome.storage.local.get();
-    sendResponse({ 
+    const queueStats = downloadQueue.getStats();
+
+    sendResponse({
       status: 'ready',
-      settings: settings 
+      settings: settings,
+      downloadState: {
+        isActive: downloadState.isActive,
+        isPaused: downloadState.isPaused || downloadQueue.isPaused,
+        completed: downloadState.completed,
+        failed: downloadState.failed,
+        total: downloadState.purchases.length,
+        queueSize: queueStats.total
+      }
     });
   } catch (error) {
     sendResponse({ error: error.message });
@@ -237,7 +253,9 @@ async function saveQueueState() {
       downloadState: {
         completed: downloadState.completed,
         failed: downloadState.failed,
-        isActive: downloadState.isActive
+        isActive: downloadState.isActive,
+        isPaused: downloadState.isPaused,
+        purchases: downloadState.purchases  // Save the purchases array!
       }
     });
   } catch (error) {
@@ -258,9 +276,13 @@ async function restoreQueueState() {
       downloadState.completed = data.downloadState.completed || 0;
       downloadState.failed = data.downloadState.failed || 0;
       downloadState.isActive = data.downloadState.isActive || false;
+      downloadState.isPaused = data.downloadState.isPaused || false;
+      downloadState.purchases = data.downloadState.purchases || [];  // Restore the purchases array!
 
-      // Resume processing if there were active downloads
-      if (downloadState.isActive && !downloadQueue.isEmpty()) {
+      console.log(`State restored: active=${downloadState.isActive}, paused=${downloadState.isPaused}, purchases=${downloadState.purchases.length}`);
+
+      // Resume processing if there were active downloads (not paused)
+      if (downloadState.isActive && !downloadState.isPaused && !downloadQueue.isEmpty()) {
         console.log('Resuming queue processing...');
         processNextDownload();
       }
@@ -282,16 +304,23 @@ let currentDownloadJob = null;
 // Download handlers
 async function handleStartDownload(data, sendResponse) {
   try {
-    // Check if we're resuming a paused queue
-    if (downloadQueue.isPaused && !downloadQueue.isEmpty()) {
-      console.log('Resuming paused queue with', downloadQueue.getStats().total, 'items');
-      downloadQueue.resume();
+    // Check if we have an existing queue to resume (either paused or just restored from storage)
+    if (!downloadQueue.isEmpty()) {
+      const queueStats = downloadQueue.getStats();
+      console.log('Resuming existing queue with', queueStats.total, 'items');
+
+      // Resume if paused
+      if (downloadQueue.isPaused) {
+        downloadQueue.resume();
+      }
+
       downloadState.isPaused = false;
       downloadState.isActive = true;
 
       // Continue processing
       processNextDownload();
       sendResponse({ status: 'resumed', totalPurchases: downloadState.purchases.length });
+      saveQueueState();
       return;
     }
 
@@ -314,6 +343,7 @@ async function handleStartDownload(data, sendResponse) {
 
     // Clear existing queue and reset state
     downloadQueue.clear();
+    downloadQueue.isPaused = false;  // Explicitly reset pause state!
     downloadState.purchases = purchases;
     downloadState.isActive = true;
     downloadState.isPaused = false;
@@ -501,6 +531,7 @@ async function handleDiscoverAndStart(sendResponse) {
 
     // Clear existing queue and reset state
     downloadQueue.clear();
+    downloadQueue.isPaused = false;  // Explicitly reset pause state!
     downloadState.purchases = purchases;
     downloadState.isActive = true;
     downloadState.isPaused = false;
