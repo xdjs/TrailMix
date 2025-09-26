@@ -22,6 +22,55 @@ chrome.runtime.onStartup.addListener(() => {
   // Extension starting up
 });
 
+// Ensure all Bandcamp downloads are placed under a TrailMix subfolder
+try {
+  if (
+    typeof chrome !== 'undefined' &&
+    chrome.downloads &&
+    chrome.downloads.onDeterminingFilename &&
+    typeof chrome.downloads.onDeterminingFilename.addListener === 'function'
+  ) {
+    chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
+      try {
+        const url = item && item.url ? item.url : '';
+        // Only adjust Bandcamp CDN downloads
+        const isBandcampCdn = (() => {
+          try {
+            const u = new URL(url);
+            return u.hostname && u.hostname.endsWith('.bcbits.com');
+          } catch (_) {
+            return false;
+          }
+        })();
+
+        if (!isBandcampCdn) {
+          // Leave non-Bandcamp downloads untouched
+          return;
+        }
+
+        // Use Chrome's suggested path but prefix with our folder
+        const suggested = (item && item.filename) ? String(item.filename) : '';
+        const normalized = suggested.replace(/^\/+/, '');
+
+        // Avoid double-prefixing if already under TrailMix/
+        const target = normalized.startsWith('TrailMix/')
+          ? normalized
+          : `TrailMix/${normalized || (new URL(url).pathname.split('/').pop() || 'download')}`;
+
+        // Ask Chrome to save under the TrailMix subdirectory; Chrome will
+        // create the directory automatically if it does not exist.
+        if (typeof suggest === 'function') {
+          suggest({ filename: target, conflictAction: 'uniquify' });
+        }
+      } catch (_) {
+        // Swallow errors to avoid interrupting downloads
+      }
+    });
+  }
+} catch (_) {
+  // Environment without downloads API (e.g., tests) — ignore
+}
+
 // Initialize extension defaults
 async function initializeExtension() {
   try {
