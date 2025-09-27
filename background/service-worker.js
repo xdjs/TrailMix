@@ -28,6 +28,10 @@ let downloadQueue = new DownloadQueue();
 // Process reentrancy guard
 let isProcessing = false;
 
+// Store metadata for downloads (URL -> metadata)
+// This is used to pass metadata from download-manager to onDeterminingFilename listener
+const downloadMetadata = new Map();
+
 // Global download manager instance for sequential processing
 let globalDownloadManager = null;
 
@@ -81,61 +85,58 @@ try {
           return;
         }
 
-        // Use Chrome's suggested filename when available
-        const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
-
-        // Sanitize for filesystem
-        const illegalRe = /[<>:"\\|?*]/g;
-        const sanitizeSegment = (seg) => seg.replace(illegalRe, '_').trim();
+        // Check if we have metadata for this download
+        const metadata = downloadMetadata.get(url);
 
         let target;
+        if (metadata && metadata.artist && metadata.title) {
+          // We have metadata - use it to create the folder structure
+          const artist = metadata.artist;
+          const title = metadata.title;
 
-        // Check if we already have a folder structure from the download manager
-        // (it would look like "TrailMix/Artist/Album/")
-        if (suggestedRaw.startsWith('TrailMix/') && suggestedRaw.includes('/')) {
-          // We have metadata-based path from download manager
-          // Extract the original filename from the URL
-          let originalFilename = '';
-          try {
-            originalFilename = new URL(url).pathname.split('/').filter(Boolean).pop() || '';
-          } catch (_) {
-            originalFilename = `download-${Date.now()}`;
-          }
-
-          // If the suggested path ends with /, append the filename
-          if (suggestedRaw.endsWith('/')) {
-            target = suggestedRaw + sanitizeSegment(originalFilename);
-          } else {
-            // Otherwise use as-is (might already include filename)
-            target = suggestedRaw;
-          }
-          console.log('[TrailMix] Using metadata-based path:', target);
-        } else {
-          // Fallback: No metadata, just use TrailMix/filename
+          // Get the original filename
+          const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
           const originalFilename = suggestedRaw.split('/').pop() || suggestedRaw;
-          let cleanFilename = sanitizeSegment(originalFilename);
 
-          if (!cleanFilename) {
-            // Last resort: use URL or timestamp
+          let filename = originalFilename;
+          if (!filename) {
             try {
               const last = new URL(url).pathname.split('/').filter(Boolean).pop();
-              cleanFilename = sanitizeSegment(last || `download-${Date.now()}`);
+              filename = last || `download-${Date.now()}`;
             } catch (_) {
-              cleanFilename = `download-${Date.now()}`;
+              filename = `download-${Date.now()}`;
             }
           }
 
-          // Check if already prefixed to avoid double-prefixing
-          if (cleanFilename.startsWith('TrailMix/')) {
-            target = cleanFilename;
+          // Build path with metadata
+          target = `TrailMix/${artist}/${title}/${filename}`;
+          console.log('[TrailMix] Using metadata path:', target);
+
+          // Clean up the metadata now that we've used it
+          downloadMetadata.delete(url);
+        } else {
+          // No metadata - just use TrailMix/filename
+          const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
+          const originalFilename = suggestedRaw.split('/').pop() || suggestedRaw;
+
+          let filename = originalFilename;
+          if (!filename) {
+            try {
+              const last = new URL(url).pathname.split('/').filter(Boolean).pop();
+              filename = last || `download-${Date.now()}`;
+            } catch (_) {
+              filename = `download-${Date.now()}`;
+            }
+          }
+
+          if (filename.startsWith('TrailMix/')) {
+            target = filename;
           } else {
-            target = `TrailMix/${cleanFilename}`;
+            target = `TrailMix/${filename}`;
           }
           console.log('[TrailMix] Using fallback path (no metadata):', target);
         }
 
-        // Ask Chrome to save under the TrailMix subdirectory; Chrome will
-        // create the directory automatically if it does not exist.
         if (typeof suggest === 'function') {
           suggest({ filename: target, conflictAction: 'uniquify' });
         }
