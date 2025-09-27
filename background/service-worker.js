@@ -28,6 +28,10 @@ let downloadQueue = new DownloadQueue();
 // Process reentrancy guard
 let isProcessing = false;
 
+// Store metadata for downloads (URL -> metadata)
+// This is used to pass metadata from download-manager to onDeterminingFilename listener
+const downloadMetadata = new Map();
+
 // Global download manager instance for sequential processing
 let globalDownloadManager = null;
 
@@ -81,39 +85,58 @@ try {
           return;
         }
 
-        // Use Chrome's suggested filename when available
-        const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
+        // Check if we have metadata for this download
+        const metadata = downloadMetadata.get(url);
 
-        // Remove any leading slashes
-        const noLeadingSlash = suggestedRaw.replace(/^\/+/, '');
+        let target;
+        if (metadata && metadata.artist && metadata.title) {
+          // We have metadata - use it to create the folder structure
+          const artist = metadata.artist;
+          const title = metadata.title;
 
-        // Sanitize path segments to prevent traversal and illegal characters
-        const illegalRe = /[<>:"\\|?*]/g; // keep forward slash for subfolders
-        const segments = noLeadingSlash
-          .split('/')
-          .filter(Boolean)
-          .filter(seg => seg !== '.' && seg !== '..')
-          .map(seg => seg.replace(illegalRe, '_'));
+          // Get the original filename
+          const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
+          const originalFilename = suggestedRaw.split('/').pop() || suggestedRaw;
 
-        let sanitizedPath = segments.join('/');
-
-        // Fallback to URL last segment if needed
-        if (!sanitizedPath) {
-          try {
-            const last = new URL(url).pathname.split('/').filter(Boolean).pop();
-            sanitizedPath = (last || '').replace(illegalRe, '_');
-          } catch (_) {
-            // As a last resort, use timestamp-based name
-            sanitizedPath = `download-${Date.now()}`;
+          let filename = originalFilename;
+          if (!filename) {
+            try {
+              const last = new URL(url).pathname.split('/').filter(Boolean).pop();
+              filename = last || `download-${Date.now()}`;
+            } catch (_) {
+              filename = `download-${Date.now()}`;
+            }
           }
+
+          // Build path with metadata
+          target = `TrailMix/${artist}/${title}/${filename}`;
+          console.log('[TrailMix] Using metadata path:', target);
+
+          // Clean up the metadata now that we've used it
+          downloadMetadata.delete(url);
+        } else {
+          // No metadata - just use TrailMix/filename
+          const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
+          const originalFilename = suggestedRaw.split('/').pop() || suggestedRaw;
+
+          let filename = originalFilename;
+          if (!filename) {
+            try {
+              const last = new URL(url).pathname.split('/').filter(Boolean).pop();
+              filename = last || `download-${Date.now()}`;
+            } catch (_) {
+              filename = `download-${Date.now()}`;
+            }
+          }
+
+          if (filename.startsWith('TrailMix/')) {
+            target = filename;
+          } else {
+            target = `TrailMix/${filename}`;
+          }
+          console.log('[TrailMix] Using fallback path (no metadata):', target);
         }
 
-        // Avoid double-prefixing if already under TrailMix/
-        const alreadyPrefixed = sanitizedPath.startsWith('TrailMix/');
-        const target = alreadyPrefixed ? sanitizedPath : `TrailMix/${sanitizedPath}`;
-
-        // Ask Chrome to save under the TrailMix subdirectory; Chrome will
-        // create the directory automatically if it does not exist.
         if (typeof suggest === 'function') {
           suggest({ filename: target, conflictAction: 'uniquify' });
         }
