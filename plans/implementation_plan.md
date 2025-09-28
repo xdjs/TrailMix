@@ -423,7 +423,7 @@ Additional outcome:
 
 - [ ] Perform expansion and monitor completion:
   - [ ] Click the detected button once (guard double-click); if no growth within `retryWindowMs` (~2s), click once more.
-  - [ ] Optionally cross-check that the button text includes `expectedTotal` (log mismatch but still proceed).
+  - [ ] Sanity check: extract digits from the button label (e.g., "view all M purchases") as `buttonTotal`; compare to `expectedTotal` from the summary. If both present and they differ, log a discrepancy, include both values in metadata, and still proceed using `expectedTotal` for the stop condition.
   - [ ] Poll purchases container every `pollMs` (250–300ms). Early-stop when `visibleCount >= expectedTotal`—no stabilization wait needed.
   - [ ] If `expectedTotal` is unknown, use stabilization heuristic: growth followed by `stableWindowMs` (~1500ms) of no changes.
   - [ ] Use `overallTimeoutMs` (15–30s); with known totals prefer 15–20s.
@@ -438,14 +438,14 @@ Additional outcome:
   - [ ] If no expansion and totals unknown, prefer `#pagedata` then DOM fallback.
 
 - [ ] Response metadata & logging:
-  - [ ] Return `{ expectedTotal, found: visibleCount, complete: visibleCount >= expectedTotal, expanded, retries, durationMs }`.
+  - [ ] Return `{ expectedTotal, buttonTotal, found: visibleCount, complete: visibleCount >= expectedTotal, expanded, retries, durationMs }`.
   - [ ] Console info/warn logs: total detection, expansion decision, growth deltas, early-stop, timeout/partial.
 
 - [ ] Configuration/tunables:
   - [ ] Expose `pollMs`, `stableWindowMs`, `overallTimeoutMs`, `retryWindowMs`, `strictMode` as constants; allow test overrides.
 
 - [ ] Testing:
-  - [ ] Unit: total parsing (selector + regex fallback, i18n-safe digit parsing), label pattern detection (`"view all M purchases"` with varying M/casing), growth/early-stop logic, timeout handling, strict vs non-strict behavior.
+  - [ ] Unit: total parsing (selector + regex fallback, i18n-safe digit parsing), label pattern detection (`"view all M purchases"` with varying M/casing), sanity check mismatch handling (`buttonTotal` vs `expectedTotal`), growth/early-stop logic, timeout handling, strict vs non-strict behavior.
   - [ ] Integration: use `tmp/purchases.html` (e.g., “10 of 27”) and `tmp/purchases_all.html` to assert expansion was attempted and stopped at 27.
   - [ ] Regression: cases with no button (initial `visibleCount == expectedTotal`) and missing/invalid totals (stabilization path).
 
