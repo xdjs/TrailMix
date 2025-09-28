@@ -407,23 +407,54 @@ Additional outcome:
   - [x] Track completed, failed, and active counts
   - [x] Display active download count in UI
 
-#### Task 3.6: Pagination Handling
-- [ ] Implement infinite scroll detection:
-  - [ ] Detect when user's purchases use pagination
-  - [ ] Check for "Load More" button or scroll trigger
-  - [ ] Monitor for dynamically loaded content
-- [ ] Create pagination navigation:
-  - [ ] Automatically scroll to load more purchases
-  - [ ] Handle "Load More" button clicks if present
-  - [ ] Wait for new content to load before continuing
-- [ ] Implement complete collection scanning:
-  - [ ] Keep loading until all purchases found
-  - [ ] Track total vs loaded purchase count
-  - [ ] Handle very large collections (100+ albums)
-- [ ] Add pagination error handling:
-  - [ ] Handle network errors during pagination
-  - [ ] Retry failed page loads
-  - [ ] Set maximum pagination attempts
+#### Task 3.6: View-All Loading (Pagination)
+
+- [ ] Goal: When the purchases page shows a total (e.g., “N of M purchases”) and a “View All” button, expand the list and scrape exactly M items. Skip `#pagedata` after expansion since it remains truncated.
+
+- [ ] Read totals and baseline:
+  - [ ] Wait for the summary to render and parse `expectedTotal` (M) from `#oh-container > div:nth-child(2) > span` and its sibling text (regex-only on digits). Support `.page-items-number` + sibling text fallback.
+  - [ ] Compute `visibleCount` from `#oh-container > div.purchases` using grid selectors first, then anchor-based fallback.
+  - [ ] Log detection: “visible N of expected M purchases”.
+
+- [ ] Decide whether to expand:
+  - [ ] If `expectedTotal` exists, `visibleCount < expectedTotal`, and a button exists at `#oh-container > div.purchases > div > button` (or text fallback matching label pattern) → attempt expansion.
+  - [ ] Label pattern: case-insensitive `/\bview\s+all\b.*\bpurchases\b/` and should contain the total number; do not depend on exact casing.
+  - [ ] Otherwise skip expansion and proceed to scraping.
+
+- [ ] Perform expansion and monitor completion:
+  - [ ] Click the detected button once (guard double-click); if no growth within `retryWindowMs` (~2s), click once more.
+  - [ ] Optionally cross-check that the button text includes `expectedTotal` (log mismatch but still proceed).
+  - [ ] Poll purchases container every `pollMs` (250–300ms). Early-stop when `visibleCount >= expectedTotal`—no stabilization wait needed.
+  - [ ] If `expectedTotal` is unknown, use stabilization heuristic: growth followed by `stableWindowMs` (~1500ms) of no changes.
+  - [ ] Use `overallTimeoutMs` (15–30s); with known totals prefer 15–20s.
+
+- [ ] Handle outcomes:
+  - [ ] Success: record `{ before, after, durationMs }` and proceed.
+  - [ ] Timeout and totals known: dev strictMode → fail fast; prod → proceed with warning and partial results.
+  - [ ] No button: assume everything visible and continue.
+
+- [ ] Scraping order:
+  - [ ] If expansion attempted or `visibleCount >= expectedTotal`, use DOM scraping only; skip `#pagedata`.
+  - [ ] If no expansion and totals unknown, prefer `#pagedata` then DOM fallback.
+
+- [ ] Response metadata & logging:
+  - [ ] Return `{ expectedTotal, found: visibleCount, complete: visibleCount >= expectedTotal, expanded, retries, durationMs }`.
+  - [ ] Console info/warn logs: total detection, expansion decision, growth deltas, early-stop, timeout/partial.
+
+- [ ] Configuration/tunables:
+  - [ ] Expose `pollMs`, `stableWindowMs`, `overallTimeoutMs`, `retryWindowMs`, `strictMode` as constants; allow test overrides.
+
+- [ ] Testing:
+  - [ ] Unit: total parsing (selector + regex fallback, i18n-safe digit parsing), label pattern detection (`"view all M purchases"` with varying M/casing), growth/early-stop logic, timeout handling, strict vs non-strict behavior.
+  - [ ] Integration: use `tmp/purchases.html` (e.g., “10 of 27”) and `tmp/purchases_all.html` to assert expansion was attempted and stopped at 27.
+  - [ ] Regression: cases with no button (initial `visibleCount == expectedTotal`) and missing/invalid totals (stabilization path).
+
+- [ ] Acceptance Criteria:
+  - [ ] AC3.6.1: When total M is present and View All exists, the process stops at `found == expectedTotal` or times out (strictMode: error; non-strict: warning + partial).
+  - [ ] AC3.6.2: If total is present and `visibleCount >= expectedTotal` initially, expansion is skipped.
+  - [ ] AC3.6.3: After expansion, the discovered count is `>= pagedataCount` and equals M when not timed out.
+  - [ ] AC3.6.4: Discovery response includes `{ expectedTotal, found, complete, expanded }` and accurate logs.
+  - [ ] AC3.6.5: Supports 100s of purchases without activating the tab.
 
 #### Task 3.7: Download Completion Handling ✅ COMPLETED
 - [x] Monitor download tabs:
@@ -477,7 +508,7 @@ Additional outcome:
 - [ ] Test download link validation functions
 
 **Acceptance Test:**
-- [ ] **AC3.6.1**: Handles pagination to load all purchases
+- [ ] **AC3.6.1**: Clicks "View All" and loads full purchases list
 - [ ] **AC3.6.2**: Works with collections of 100+ albums
 - [ ] **AC3.7.1**: Successfully extracts all albums from purchases page
 - [ ] **AC3.7.2**: Correctly identifies album metadata (title, artist, date)
