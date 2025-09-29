@@ -409,51 +409,69 @@ Additional outcome:
 
 #### Task 3.6: View-All Loading (Pagination)
 
-- [ ] Goal: When the purchases page shows a total (e.g., “N of M purchases”) and a “View All” button, expand the list and scrape exactly M items. Skip `#pagedata` after expansion since it remains truncated.
+- [ ] Goal: When the purchases page shows a total (e.g., “N of M purchases”) and a “View All” button, expand the list and scrape exactly M items. After any expansion attempt, skip `#pagedata` because it remains truncated. Count includes all purchased items (albums, tracks, mixed media); `visibleCount` counts all purchase tiles equally.
+
+- [ ] DOM targets and wording:
+  - [ ] Use `#oh-container`-based selectors as primary. Add fallbacks later if Bandcamp changes DOM.
+  - [ ] English-only for initial release. Match “View all … purchases” copy; no i18n variations yet.
 
 - [ ] Read totals and baseline:
-  - [ ] Wait for the summary to render and parse `expectedTotal` (M) from `#oh-container > div:nth-child(2) > span` and its sibling text (regex-only on digits). Support `.page-items-number` + sibling text fallback.
+  - [ ] Parse `expectedTotal` (M) from the summary: primary `#oh-container > div:nth-child(2) > span` and sibling text (digits-only regex), fallback `.page-items-number` + sibling text.
   - [ ] Compute `visibleCount` from `#oh-container > div.purchases` using grid selectors first, then anchor-based fallback.
-  - [ ] Log detection: “visible N of expected M purchases”.
+  - [ ] Log immediately when `expectedTotal` is determined.
+  - [ ] Log “visible N of expected M purchases” after baseline measurement.
 
 - [ ] Decide whether to expand:
-  - [ ] If `expectedTotal` exists, `visibleCount < expectedTotal`, and a button exists at `#oh-container > div.purchases > div > button` (or text fallback matching label pattern) → attempt expansion.
-  - [ ] Label pattern: case-insensitive `/\bview\s+all\b.*\bpurchases\b/` and should contain the total number; do not depend on exact casing.
+  - [ ] If `expectedTotal` exists, `visibleCount < expectedTotal`, and a button exists at `#oh-container > div.purchases > div > button` (or text fallback matching English label) → attempt expansion.
+  - [ ] Button label pattern: case-insensitive `/\bview\s+all\b.*\bpurchases\b/` and should contain a total number (digits-only extraction).
   - [ ] Otherwise skip expansion and proceed to scraping.
+  - [ ] Log whether a View All button was detected.
 
 - [ ] Perform expansion and monitor completion:
-  - [ ] Click the detected button once (guard double-click); if no growth within `retryWindowMs` (~2s), click once more.
-  - [ ] Sanity check: extract digits from the button label (e.g., "view all M purchases") as `buttonTotal`; compare to `expectedTotal` from the summary. If both present and they differ, log a discrepancy, include both values in metadata, and still proceed using `expectedTotal` for the stop condition.
-  - [ ] Poll purchases container every `pollMs` (250–300ms). Early-stop when `visibleCount >= expectedTotal`—no stabilization wait needed.
-  - [ ] If `expectedTotal` is unknown, use stabilization heuristic: growth followed by `stableWindowMs` (~1500ms) of no changes.
-  - [ ] Use `overallTimeoutMs` (15–30s); with known totals prefer 15–20s.
+  - [ ] Click the detected button once (guard re-entrancy). Log when the button is clicked.
+  - [ ] Extract digits from the button label as `buttonTotal`; compare to `expectedTotal`. If both present and they differ (even by >20%), proceed using `expectedTotal` and log both values and the mismatch.
+  - [ ] Use a `MutationObserver` on the purchases container to detect growth efficiently. Fallback to polling every `pollMs` only if needed. Early-stop when `visibleCount >= expectedTotal`—no stabilization wait needed in this case.
+  - [ ] If `expectedTotal` is unknown, use stabilization heuristic: detect growth followed by `stableWindowMs` of no changes before stopping (observer preferred, polling fallback).
+  - [ ] If the button disappears after click (expected), do not attempt a second click. Only re-click if the button still exists and is visible after `retryWindowMs`.
+  - [ ] Progressive loading unknown: verify via logs whether growth occurs without scrolling. Do not auto-scroll initially; reassess after telemetry.
+  - [ ] Enforce `overallTimeoutMs` (default below, capped at 30s). On timeout with known totals, proceed with partial results; with unknown totals, bail according to edge-case rules below.
 
-- [ ] Handle outcomes:
+- [ ] Outcomes and edge cases:
   - [ ] Success: record `{ before, after, durationMs }` and proceed.
-  - [ ] Timeout and totals known: dev strictMode → fail fast; prod → proceed with warning and partial results.
-  - [ ] No button: assume everything visible and continue.
+  - [ ] No totals and growth stalls below a small minimum (threshold: <10 items): bail early with warning rather than waiting full timeout. Log the threshold trigger.
+  - [ ] Timeout with known totals: proceed with partial results, log timeout. Silent in UI for initial release (console-only).
+  - [ ] No View All button: assume everything visible and continue.
+  - [ ] After expansion attempt, if DOM scraping yields unexpectedly low results or structural errors, log the error and stop processing (no `#pagedata` fallback). Keep UI handling minimal (no special popup messaging for initial release).
 
 - [ ] Scraping order:
   - [ ] If expansion attempted or `visibleCount >= expectedTotal`, use DOM scraping only; skip `#pagedata`.
-  - [ ] If no expansion and totals unknown, prefer `#pagedata` then DOM fallback.
+  - [ ] If no expansion and totals unknown, prefer `#pagedata` with DOM fallback.
 
 - [ ] Response metadata & logging:
   - [ ] Return `{ expectedTotal, buttonTotal, found: visibleCount, complete: visibleCount >= expectedTotal, expanded, retries, durationMs }`.
-  - [ ] Console info/warn logs: total detection, expansion decision, growth deltas, early-stop, timeout/partial.
+  - [ ] Console logs only (content script) for initial release. Log: expectedTotal detection, View All detection, buttonTotal, click event, visible vs expected counts (only on change or ~every 1–2s to reduce noise), any timeouts, threshold triggers, and final outcome.
 
-- [ ] Configuration/tunables:
-  - [ ] Expose `pollMs`, `stableWindowMs`, `overallTimeoutMs`, `retryWindowMs`, `strictMode` as constants; allow test overrides.
+- [ ] Configuration/tunables (defaults, with 30s hard upper bound):
+  - [ ] `pollMs`: 300ms (fallback only; MutationObserver preferred)
+  - [ ] `stableWindowMs`: 1500ms
+  - [ ] `retryWindowMs`: 2000ms (only re-click if button still present)
+  - [ ] `overallTimeoutMs`: 20000ms default; never exceed 30000ms
+  - [ ] `strictMode`: deferred for now (off by default). Toggling deferred.
 
-- [ ] Testing:
-  - [ ] Unit: total parsing (selector + regex fallback, i18n-safe digit parsing), label pattern detection (`"view all M purchases"` with varying M/casing), sanity check mismatch handling (`buttonTotal` vs `expectedTotal`), growth/early-stop logic, timeout handling, strict vs non-strict behavior.
-  - [ ] Integration: use `tmp/purchases.html` (e.g., “10 of 27”) and `tmp/purchases_all.html` to assert expansion was attempted and stopped at 27.
-  - [ ] Regression: cases with no button (initial `visibleCount == expectedTotal`) and missing/invalid totals (stabilization path).
+- [ ] Integration and scope:
+  - [ ] Implement expansion logic in a separate function invoked from the `SCRAPE_PURCHASES` handler.
+  - [ ] Helper signature: `expandPurchasesIfNeeded(opts) -> { expectedTotal, buttonTotal, found, expanded, complete, durationMs }`.
+  - [ ] Tunables live as script constants; allow handler to pass optional overrides via `opts`.
+
+- [ ] Testing (initial scope):
+  - [ ] Unit: total parsing (selector + regex fallback, digits-only), English label pattern detection, mismatch handling, growth/early-stop logic, timeout and threshold handling.
+  - [ ] Integration tests and i18n coverage deferred for now.
 
 - [ ] Acceptance Criteria:
-  - [ ] AC3.6.1: When total M is present and View All exists, the process stops at `found == expectedTotal` or times out (strictMode: error; non-strict: warning + partial).
+  - [ ] AC3.6.1: When total M is present and View All exists, process stops at `found == expectedTotal` or times out; on timeout, partial results are returned with logs only.
   - [ ] AC3.6.2: If total is present and `visibleCount >= expectedTotal` initially, expansion is skipped.
-  - [ ] AC3.6.3: After expansion, the discovered count is `>= pagedataCount` and equals M when not timed out.
-  - [ ] AC3.6.4: Discovery response includes `{ expectedTotal, found, complete, expanded }` and accurate logs.
+  - [ ] AC3.6.3: After expansion, DOM-based discovery equals M when not timed out.
+  - [ ] AC3.6.4: Discovery response includes `{ expectedTotal, found, complete, expanded }` and all required logs are emitted.
   - [ ] AC3.6.5: Supports 100s of purchases without activating the tab.
 
 #### Task 3.7: Download Completion Handling ✅ COMPLETED
