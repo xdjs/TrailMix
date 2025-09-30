@@ -43,10 +43,22 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     // First time installation
     initializeExtension();
+
+    // Configure side panel to open when extension icon is clicked
+    if (chrome.sidePanel?.setPanelBehavior) {
+      chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+        .catch((error) => console.error('Failed to set side panel behavior:', error));
+    }
   } else if (details.reason === 'update') {
     // Extension updated from previousVersion
     // Restore queue state after update
     restoreQueueState();
+
+    // Ensure side panel behavior is set after update
+    if (chrome.sidePanel?.setPanelBehavior) {
+      chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+        .catch((error) => console.error('Failed to set side panel behavior:', error));
+    }
   }
 });
 

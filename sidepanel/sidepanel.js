@@ -9,6 +9,23 @@ let elements = {};
 // Initialize popup when DOM is loaded
 document.addEventListener('DOMContentLoaded', initializePopup);
 
+// Listen for when side panel becomes visible again
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible') {
+    console.log('Side panel became visible, re-checking authentication...');
+    await checkAuthenticationStatus();
+  }
+});
+
+// Listen for tab updates to detect when user completes login
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // If a Bandcamp tab finished loading, re-check authentication
+  if (changeInfo.status === 'complete' && tab.url && tab.url.includes('bandcamp.com')) {
+    console.log('Bandcamp tab loaded, re-checking authentication...');
+    checkAuthenticationStatus();
+  }
+});
+
 async function initializePopup() {
   // Get DOM elements
   elements = {
@@ -27,13 +44,13 @@ async function initializePopup() {
     logContent: document.getElementById('logContent'),
     clearLogBtn: document.getElementById('clearLogBtn')
   };
-  
+
   // Set up event listeners
   setupEventListeners();
-  
+
   // Load initial state
   await loadInitialState();
-  
+
   // Check authentication status
   await checkAuthenticationStatus();
 }
@@ -249,12 +266,10 @@ async function handleStopDownload() {
 
 async function handleLogin() {
   try {
-    // Open Bandcamp login page
-    await chrome.tabs.create({ url: 'https://bandcamp.com/login' });
-    addLogEntry('Opening Bandcamp login page');
-    
-    // Close popup
-    window.close();
+    // Open Bandcamp login page in a new tab (keep side panel open)
+    await chrome.tabs.create({ url: 'https://bandcamp.com/login', active: true });
+    addLogEntry('Opening Bandcamp login page in new tab');
+    addLogEntry('Side panel will remain open - return here after logging in', 'info');
   } catch (error) {
     addLogEntry('Failed to open login page', 'error');
   }
