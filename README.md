@@ -5,12 +5,14 @@ A Chrome extension that allows users to bulk-download their paid Bandcamp purcha
 ## Features
 
 - **Bulk Download**: Download all your paid Bandcamp purchases at once
+- **Side Panel UI**: Persistent side panel interface that stays open during downloads
 - **MP3 Format**: Downloads in MP3 format with embedded metadata
 - **Artwork Embedding**: Includes album artwork in downloaded files
-- **Smart Organization**: Organizes files as `Artist / Album / TrackNumber - Title.mp3`
+- **Smart Organization**: Organizes files as `TrailMix/Artist/Album/filename.mp3`
 - **Progress Tracking**: Real-time progress dashboard with detailed status
 - **Error Handling**: Automatic retry and graceful error recovery
 - **Session Management**: Secure authentication without credential storage
+- **Queue Persistence**: Downloads resume automatically after browser restarts
 
 ## Installation
 
@@ -30,17 +32,27 @@ A Chrome extension that allows users to bulk-download their paid Bandcamp purcha
 
 ### Prerequisites
 
-- Google Chrome browser (latest version recommended)
+- Google Chrome browser version 114+ (for side panel support)
 - Active Bandcamp account with purchased music
 - Sufficient disk space for downloads
 
 ## Usage
 
-1. **Login**: Click the extension icon and log in to your Bandcamp account
-2. **Start Download**: Click "Start Download" to begin bulk downloading your purchases
-3. **Monitor Progress**: Watch the progress dashboard for real-time status updates
-4. **Choose Location**: Select your preferred download folder in settings
-5. **Completion**: Files will be organized and ready to play in your music library
+1. **Open Side Panel**: Click the Trail Mix extension icon in your browser toolbar to open the side panel
+2. **Login**: If not authenticated, click "Login to Bandcamp" (opens in new tab, side panel stays open)
+3. **Authenticate**: Log in to Bandcamp in the new tab, then return to the side panel
+4. **Auto-Refresh**: The side panel automatically detects when you've logged in and updates the UI
+5. **Start Download**: Click "Start Download" to begin bulk downloading your purchases
+6. **Monitor Progress**: Watch the progress dashboard in the side panel for real-time status updates
+7. **Pause/Resume**: Use the Pause and Resume buttons to control downloads
+8. **Completion**: Files are organized in your Downloads folder under `TrailMix/Artist/Album/`
+
+### Side Panel Benefits
+
+- **Persistent UI**: Side panel stays open while you browse or work in other tabs
+- **Always Accessible**: No need to repeatedly click the extension icon
+- **Better for Long Operations**: Ideal for monitoring long-running download sessions
+- **Resizable**: Drag the side panel edge to adjust width to your preference
 
 ## Project Structure
 
@@ -49,8 +61,15 @@ trail-mix/
 ├── manifest.json              # Chrome extension configuration
 ├── background/                 # Service worker and background scripts
 ├── content/                   # Content scripts for Bandcamp page interaction
-├── popup/                     # Extension popup UI
+├── sidepanel/                 # Extension side panel UI
+│   ├── sidepanel.html         # Side panel HTML structure
+│   ├── sidepanel.css          # Side panel styles
+│   └── sidepanel.js           # Side panel logic and UI controller
 ├── lib/                       # Core library modules
+│   ├── download-manager.js    # Download orchestration
+│   ├── download-queue.js      # Queue management with persistence
+│   ├── download-job.js        # Individual download job tracking
+│   └── utils.js               # Utility functions
 ├── assets/                    # Icons and styling assets
 ├── tests/                     # Test files (unit, integration, acceptance)
 ├── docs/                      # Documentation
@@ -85,10 +104,11 @@ npm test
 
 The extension follows a modular architecture:
 
-- **Service Worker**: Manages extension lifecycle and coordinates components
+- **Service Worker**: Manages extension lifecycle, coordinates components, and handles download queue
 - **Content Scripts**: Handle Bandcamp page scraping and interaction
-- **Popup UI**: Provides user interface and progress tracking
-- **Core Libraries**: Handle authentication, downloads, and metadata processing
+- **Side Panel UI**: Provides persistent user interface and real-time progress tracking
+- **Core Libraries**: Handle authentication, downloads, queue management, and metadata processing
+- **Download Queue**: Persistent queue system with pause/resume and retry logic
 
 ## Contributing
 
