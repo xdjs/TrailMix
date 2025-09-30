@@ -194,34 +194,72 @@ describe('Content Script', () => {
       });
     });
     
-    test('should handle SCRAPE_PURCHASES message', async () => {
-      if (!messageHandler) {
-        console.warn('Message handler not registered - skipping test');
-        return;
-      }
-      
+    test('should handle SCRAPE_PURCHASES message (DOM-only, canonical selectors)', async () => {
+      // Build a minimal purchases page DOM with canonical selectors
+      const html = `<!DOCTYPE html>
+        <html>
+          <body>
+            <div id="oh-container">
+              <div class="purchases">
+                <ol>
+                  <div class="purchases-item multiple-packages" sale_item_id="301083045">
+                    <div>
+                      <div class="col flex-column spread">
+                        <div class="purchases-item-actions">
+                          <a data-tid="download" target="_blank" href="/download?from=order_history&payment_id=308325408&sig=abc&sitem_id=301083045">download track</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="purchases-item" sale_item_id="2">
+                    <!-- no download anchor, should be skipped -->
+                  </div>
+                </ol>
+              </div>
+            </div>
+          </body>
+        </html>`;
+
+      // Swap DOM to purchases page
+      const purchasesDom = new JSDOM(html, { url: 'https://bandcamp.com/testuser/purchases' });
+      const originalWindow = global.window;
+      const originalDocument = global.document;
+      global.window = purchasesDom.window;
+      global.document = purchasesDom.window.document;
+
+      // Reload content script to bind to this DOM
+      jest.resetModules();
+      chrome.runtime.onMessage.addListener.mockClear();
+      delete require.cache[require.resolve('../../content/bandcamp-scraper.js')];
+      require('../../content/bandcamp-scraper.js');
+
+      const calls = chrome.runtime.onMessage.addListener.mock.calls;
+      const handler = calls[0][0];
+
       const mockSendResponse = jest.fn();
-      
-      const result = messageHandler(
+      const result = handler(
         { type: 'SCRAPE_PURCHASES' },
         { tab: { id: 1 } },
         mockSendResponse
       );
-      
+
       expect(result).toBe(true);
-      
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      expect(mockSendResponse).toHaveBeenCalledWith({
-        success: true,
-        purchases: expect.arrayContaining([
-          expect.objectContaining({
-            title: expect.any(String),
-            artist: expect.any(String),
-            url: expect.any(String)
-          })
-        ])
-      });
+
+      // Wait for async response
+      for (let i = 0; i < 100 && mockSendResponse.mock.calls.length === 0; i++) {
+        await new Promise(r => setTimeout(r, 1));
+      }
+
+      const resp = mockSendResponse.mock.calls[0][0];
+      expect(resp.success).toBe(true);
+      expect(Array.isArray(resp.purchases)).toBe(true);
+      expect(resp.purchases.length).toBe(1); // only downloadable item
+      expect(resp.purchases[0].downloadUrl).toMatch(/^https:\/\/bandcamp\.com\/download\?/);
+
+      // Restore original globals
+      purchasesDom.window.close();
+      global.window = originalWindow;
+      global.document = originalDocument;
     });
     
     test('should handle SCRAPE_ALBUM message', async () => {
