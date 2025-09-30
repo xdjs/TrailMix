@@ -249,12 +249,10 @@ async function handleStopDownload() {
 
 async function handleLogin() {
   try {
-    // Open Bandcamp login page
-    await chrome.tabs.create({ url: 'https://bandcamp.com/login' });
-    addLogEntry('Opening Bandcamp login page');
-    
-    // Close popup
-    window.close();
+    // Open Bandcamp login page in a new tab (keep side panel open)
+    await chrome.tabs.create({ url: 'https://bandcamp.com/login', active: true });
+    addLogEntry('Opening Bandcamp login page in new tab');
+    addLogEntry('Side panel will remain open - return here after logging in', 'info');
   } catch (error) {
     addLogEntry('Failed to open login page', 'error');
   }
