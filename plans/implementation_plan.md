@@ -752,31 +752,56 @@ Additional outcome:
   - [ ] Memory usage monitoring
 
 **Task 4.10: Convert Popup to Side Panel UI**
-- [ ] Update manifest.json configuration:
-  - [ ] Add `"sidePanel"` permission
-  - [ ] Add `side_panel` configuration with `default_path`
-  - [ ] Keep or remove `action.default_popup` (decision: remove for side-panel-only)
-- [ ] Refactor UI files:
-  - [ ] Rename `popup/` directory to `sidepanel/`
-  - [ ] Update `popup.html` → `sidepanel.html` references
-  - [ ] Update `popup.js` → `sidepanel.js` references
-  - [ ] Update `popup.css` → `sidepanel.css` references
-- [ ] Adjust CSS for side panel layout:
-  - [ ] Increase max-width from 400px to fit side panel width
-  - [ ] Optimize layout for vertical scrolling
-  - [ ] Ensure responsive design for resizable side panel
-- [ ] Update service worker:
-  - [ ] Add `chrome.sidePanel.setPanelBehavior()` to open on action click
-  - [ ] Optionally open side panel when downloads start
-  - [ ] Update message passing to work with side panel context
-- [ ] Update tests:
-  - [ ] Rename `tests/unit/popup.test.js` → `sidepanel.test.js`
-  - [ ] Update test references to side panel files
-  - [ ] Verify all existing tests still pass
-- [ ] Update documentation:
-  - [ ] Update README.md with side panel instructions
-  - [ ] Update screenshots if present
-  - [ ] Document side panel benefits for users
+
+**Approach**: Side panel only (remove popup entirely), incremental implementation
+
+**Implementation Steps:**
+
+1. [ ] Update manifest.json configuration:
+   - [ ] Add `"sidePanel"` permission
+   - [ ] Add `side_panel` configuration with `default_path: "sidepanel/sidepanel.html"`
+   - [ ] Remove `action.default_popup` (side panel only)
+
+2. [ ] Move and refactor UI files:
+   - [ ] Move `popup/` directory to `sidepanel/`
+   - [ ] Rename files: `popup.html` → `sidepanel.html`, `popup.js` → `sidepanel.js`, `popup.css` → `sidepanel.css`
+   - [ ] Update all internal file references
+   - [ ] Delete `popup/` directory after verification
+
+3. [ ] Adjust CSS for side panel layout:
+   - [ ] Remove `max-width: 400px` constraint from body
+   - [ ] Optimize for default width (~400px) and let it stretch naturally
+   - [ ] Use existing flexbox/structure without media queries (simplest approach)
+   - [ ] Ensure content flows naturally as panel resizes
+
+4. [ ] Update service worker:
+   - [ ] Add `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })` in `onInstalled` handler
+   - [ ] Side panel opens only when user clicks extension icon (no auto-open on downloads)
+   - [ ] Verify message passing works with side panel context
+
+5. [ ] Migrate tests:
+   - [ ] Create new `tests/unit/sidepanel.test.js` file
+   - [ ] Copy relevant tests from `popup.test.js` that apply to side panel
+   - [ ] Update test references to side panel files
+   - [ ] Verify all tests pass
+   - [ ] Delete `tests/unit/popup.test.js` after migration
+
+6. [ ] Update documentation:
+   - [ ] Update README.md with side panel instructions
+   - [ ] Document that side panel opens on extension icon click
+   - [ ] Update screenshots if present
+   - [ ] Document side panel benefits for users
+
+**First Milestone (Basic Functionality)**:
+- Side panel opens when extension icon is clicked
+- UI displays correctly in side panel
+- Can start downloads and see progress
+- Basic functionality works (authentication, discovery, download)
+
+**Polish/Iteration** (Later):
+- CSS refinements for wider layouts
+- Responsive breakpoints if needed
+- Additional side panel-specific features
 
 **Benefits:**
 - Persistent UI during downloads (doesn't close on click-away)
@@ -786,7 +811,7 @@ Additional outcome:
 
 **Trade-offs:**
 - Requires Chrome 114+ (current stable: 140, so not an issue)
-- Different interaction pattern than popup
+- Different interaction pattern than popup (acceptable for development stage)
 
 **Unit Tests:**
 - [x] Test single download functionality
