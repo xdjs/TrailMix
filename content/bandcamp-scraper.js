@@ -172,7 +172,7 @@ const EXPAND_CONST = {
   pollMs: 300,
   stableWindowMs: 1500,
   retryWindowMs: 2000,
-  overallTimeoutMs: 20000 // hard-max handled by caller if needed
+  overallTimeoutMs: 30000 // allow up to 30s when expanding
 };
 
 function getExpectedTotalFromSummary() {
@@ -266,20 +266,34 @@ async function expandPurchasesIfNeeded({ listEl, pollMs = EXPAND_CONST.pollMs, s
     const pollTimer = setInterval(onMut, pollMs);
 
     // Gentle auto-scroll to trigger lazy loading (page-level)
-    const se = document.scrollingElement || document.documentElement || document.body;
+    // Build candidate scrollers (page + relevant containers) and scroll to bottom periodically
+    const pageScroller = document.scrollingElement || document.documentElement || document.body;
+    const purchasesContainer = document.querySelector('#oh-container > div.purchases') || (listEl && listEl.parentElement) || null;
+    const candidates = [pageScroller, purchasesContainer, listEl].filter(Boolean);
+
+    const getHeights = (el) => ({
+      sh: (el && el.scrollHeight) || 0,
+      ch: (el && el.clientHeight) || 0
+    });
+
     const scrollTick = () => {
       try {
-        if (!se) return;
-        const sh = se.scrollHeight || 0;
-        if (sh !== lastScrollHeight) {
-          lastScrollHeight = sh;
-          lastChange = Date.now();
+        for (const el of candidates) {
+          const { sh, ch } = getHeights(el);
+          if (sh > ch) {
+            // Scroll just shy of bottom to trigger on-approach lazy loads
+            el.scrollTop = Math.max(0, sh - (ch > 0 ? ch / 2 : 1));
+            // Then nudge to very bottom
+            el.scrollTop = sh;
+            if (sh !== lastScrollHeight) {
+              lastScrollHeight = sh;
+              lastChange = Date.now();
+            }
+          }
         }
-        // Jump to bottom; browser will no-op if already there
-        se.scrollTop = sh;
       } catch (_) {}
     };
-    const scrollTimer = setInterval(scrollTick, 400);
+    const scrollTimer = setInterval(scrollTick, 250);
 
     while (Date.now() < deadline) {
       if (expectedTotal != null && found >= expectedTotal) {
