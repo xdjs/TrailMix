@@ -131,7 +131,7 @@ For issues, feature requests, or questions:
 
 ## License
 
-[License information to be added]
+MIT License - See [LICENSE](LICENSE) file for details
 
 ## Roadmap
 
