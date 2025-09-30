@@ -277,14 +277,40 @@ async function expandPurchasesIfNeeded({ listEl, pollMs = EXPAND_CONST.pollMs, s
       ch: (el && el.clientHeight) || 0
     });
 
+    const forceWindowToBottom = () => {
+      try {
+        const d = document;
+        const de = d.documentElement;
+        const b = d.body;
+        const h = Math.max(
+          (de && de.scrollHeight) || 0,
+          (b && b.scrollHeight) || 0
+        );
+        // Multiple strategies to force window bottom
+        try { window.scrollTo(0, h); } catch (_) {}
+        try { if (de) de.scrollTop = h; } catch (_) {}
+        try { if (b) b.scrollTop = h; } catch (_) {}
+      } catch (_) {}
+    };
+
+    const forceElementToBottom = (el) => {
+      try {
+        if (!el) return;
+        const sh = el.scrollHeight || 0;
+        el.scrollTop = sh;
+        try { el.dispatchEvent(new Event('scroll', { bubbles: true })); } catch (_) {}
+        // Nudge via last child scrollIntoView if present
+        try { el.lastElementChild && el.lastElementChild.scrollIntoView({ block: 'end' }); } catch (_) {}
+      } catch (_) {}
+    };
+
     const scrollTick = () => {
       try {
+        forceWindowToBottom();
         for (const el of candidates) {
           const { sh, ch } = getHeights(el);
           if (sh > ch) {
-            // Jump to bottom aggressively
-            el.scrollTop = sh;
-            try { el.dispatchEvent(new Event('scroll', { bubbles: true })); } catch (_) {}
+            forceElementToBottom(el);
             if (sh !== lastScrollHeight) {
               lastScrollHeight = sh;
               lastChange = Date.now();
@@ -325,6 +351,14 @@ async function expandPurchasesIfNeeded({ listEl, pollMs = EXPAND_CONST.pollMs, s
     try { console.warn('[TrailMix] expandPurchasesIfNeeded failed:', e?.message || String(e)); } catch (_) {}
   }
 }
+
+// Expose helpers for testing only
+try {
+  if (typeof window !== 'undefined' && typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') {
+    window.__expandPurchasesIfNeeded = expandPurchasesIfNeeded;
+    window.__getExpectedTotalFromSummary = getExpectedTotalFromSummary;
+  }
+} catch (_) {}
 
 // Wait for DOM to be ready (skip in test environment)
 if (typeof document !== 'undefined') {
