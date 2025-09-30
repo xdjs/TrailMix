@@ -861,16 +861,24 @@ Additional outcome:
 
 **Implementation Steps:**
 
-1. [ ] Update Color System:
-   - [ ] Replace all colors with style guide palette
-   - [ ] Primary Pink: `#FF4EB6` (for primary actions, progress fill)
-   - [ ] Lavender Gray: `#6D5E77` (for secondary text, borders)
-   - [ ] Dark Text: `#1E1E1E` (for primary text)
-   - [ ] Background: `#FAFAFA` (for app background)
-   - [ ] Success: `#2ECC71` (for success states, connected indicator)
-   - [ ] Warning: `#F5B82E` (for warning/pause button)
-   - [ ] Error: `#E74C3C` (for error states, cancel button)
-   - [ ] White: `#FFFFFF` (for cards, buttons)
+1. [x] Update Color System:
+   - [x] Replace all colors with style guide palette
+   - [x] Primary Pink: `#FF4EB6` (for primary actions, progress fill)
+   - [x] Lavender Gray: `#6D5E77` (for secondary text, borders)
+   - [x] Dark Text: `#1E1E1E` (for primary text)
+   - [x] Background: `#FAFAFA` (for app background)
+   - [x] Success: `#2ECC71` (for success states, connected indicator)
+   - [x] Warning: `#F5B82E` (for warning/pause button)
+   - [x] Error: `#E74C3C` (for error states, cancel button)
+   - [x] White: `#FFFFFF` (for cards, buttons)
+   - [x] Add CSS variables for all colors at :root
+   - [x] Update all component colors to use variables
+   - [x] Update button colors (primary, success, warning, danger)
+   - [x] Update progress bar colors (pink fill on lavender track)
+   - [x] Update status indicator colors
+   - [x] Update card/section borders and backgrounds
+   - [x] Update text colors throughout
+   - [x] Fix Start Download button to use btn-primary (pink)
 
 2. [ ] Update Typography:
    - [ ] Import Inter font from Google Fonts
@@ -935,14 +943,14 @@ Additional outcome:
 - [ ] Screenshot comparison before/after
 
 **Acceptance Criteria:**
-- [ ] **AC4.5.1**: All colors match style guide specification
+- [x] **AC4.5.1**: All colors match style guide specification
 - [ ] **AC4.5.2**: Inter font loads and displays correctly
 - [ ] **AC4.5.3**: Typography hierarchy matches style guide
 - [ ] **AC4.5.4**: Buttons are 48px height with 12px radius
-- [ ] **AC4.5.5**: Progress bar uses pink fill on lavender track
+- [x] **AC4.5.5**: Progress bar uses pink fill on lavender track
 - [ ] **AC4.5.6**: Cards have 16px radius with subtle shadows
 - [ ] **AC4.5.7**: All text meets WCAG AA contrast requirements
-- [ ] **AC4.5.8**: UI remains functional and responsive
+- [x] **AC4.5.8**: UI remains functional and responsive
 
 **Estimated Effort:** 1-2 hours
 
