@@ -156,13 +156,151 @@ function initialize() {
   console.log('Trail Mix: DOM ready, initializing...');
   
   // Check if we're on a Bandcamp page
-  if (!isBandcampPage()) {
+if (!isBandcampPage()) {
     console.log('Not a Bandcamp page, content script inactive');
     return;
   }
   
   console.log('Bandcamp page detected, content script active');
   setupMessageListener();
+}
+
+// ------------------------
+// Task 3.6: View-All Expansion Helper (DOM-only)
+// ------------------------
+const EXPAND_CONST = {
+  pollMs: 300,
+  stableWindowMs: 1500,
+  retryWindowMs: 2000,
+  overallTimeoutMs: 20000 // hard-max handled by caller if needed
+};
+
+function getExpectedTotalFromSummary() {
+  try {
+    const summaryEl = document.querySelector('#oh-container > div:nth-child(2) > span');
+    if (!summaryEl) return null;
+    const text = String(summaryEl.textContent || '');
+    const m = text.match(/\b(\d{1,6})\b(?=[^\d]*$)/); // last number (M)
+    if (m) return parseInt(m[1], 10);
+    const numSpans = summaryEl.querySelector('span.page-items-number');
+    if (numSpans) {
+      const n = parseInt(String(numSpans.textContent || '0').replace(/[^\d]/g, ''), 10);
+      if (!Number.isNaN(n)) return n; // fallback if only one number present
+    }
+  } catch (_) {}
+  return null;
+}
+
+function getVisibleCountStrict(listEl) {
+  try {
+    if (!listEl) return 0;
+    return Array.from(listEl.children).filter(n => n && n.tagName === 'DIV').length;
+  } catch (_) { return 0; }
+}
+
+function findViewAllButton() {
+  try {
+    const btn = document.querySelector('#oh-container > div.purchases > div > button');
+    if (!btn) return null;
+    const txt = (btn.textContent || '').toLowerCase();
+    if (/view\s+all/.test(txt) && /purchase/.test(txt)) return btn;
+  } catch (_) {}
+  return null;
+}
+
+async function expandPurchasesIfNeeded({ listEl, pollMs = EXPAND_CONST.pollMs, stableWindowMs = EXPAND_CONST.stableWindowMs, retryWindowMs = EXPAND_CONST.retryWindowMs, overallTimeoutMs = EXPAND_CONST.overallTimeoutMs } = {}) {
+  try {
+    const expectedTotal = getExpectedTotalFromSummary();
+    if (expectedTotal != null) console.log('[TrailMix] expectedTotal:', expectedTotal);
+
+    const initialCount = getVisibleCountStrict(listEl);
+    console.log(`[TrailMix] Baseline visible=${initialCount}${expectedTotal != null ? ` of expected=${expectedTotal}` : ''}`);
+
+    const btn = findViewAllButton();
+    if (!btn || expectedTotal == null || initialCount >= expectedTotal) {
+      return; // nothing to do or totals unknown
+    }
+
+    console.log('[TrailMix] View All button detected; attempting expansion…');
+    const buttonTotal = (() => {
+      const t = (btn.textContent || '');
+      const m = t.match(/\d{1,6}/);
+      return m ? parseInt(m[0], 10) : null;
+    })();
+    if (buttonTotal != null) console.log('[TrailMix] buttonTotal:', buttonTotal);
+
+    try { btn.click(); console.log('[TrailMix] Clicked View All'); } catch (e) { console.warn('[TrailMix] Failed to click View All:', e?.message || String(e)); }
+
+    // Optional re-click if still present/visible after retryWindowMs
+    setTimeout(() => {
+      try {
+        const again = findViewAllButton();
+        if (again && again.offsetParent !== null) {
+          console.log('[TrailMix] Retrying View All click…');
+          again.click();
+        }
+      } catch (_) {}
+    }, retryWindowMs);
+
+    const deadline = Date.now() + Math.min(overallTimeoutMs, 30000);
+    let found = initialCount;
+    let lastChange = Date.now();
+    let observer;
+    let lastScrollHeight = 0;
+
+    const onMut = () => {
+      const cur = getVisibleCountStrict(listEl);
+      if (cur !== found) {
+        found = cur;
+        lastChange = Date.now();
+        console.log(`[TrailMix] growth: visible=${found} of expected=${expectedTotal}`);
+      }
+    };
+
+    try {
+      observer = new MutationObserver(onMut);
+      observer.observe(listEl, { childList: true });
+    } catch (_) {}
+
+    // Poll fallback
+    const pollTimer = setInterval(onMut, pollMs);
+
+    // Gentle auto-scroll to trigger lazy loading (page-level)
+    const se = document.scrollingElement || document.documentElement || document.body;
+    const scrollTick = () => {
+      try {
+        if (!se) return;
+        const sh = se.scrollHeight || 0;
+        if (sh !== lastScrollHeight) {
+          lastScrollHeight = sh;
+          lastChange = Date.now();
+        }
+        // Jump to bottom; browser will no-op if already there
+        se.scrollTop = sh;
+      } catch (_) {}
+    };
+    const scrollTimer = setInterval(scrollTick, 400);
+
+    while (Date.now() < deadline) {
+      if (expectedTotal != null && found >= expectedTotal) {
+        console.log('[TrailMix] Early-stop: reached expected total');
+        break;
+      }
+      // If nothing changes for a stability window, keep trying until deadline (no early bail here since totals are known)
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    try { clearInterval(pollTimer); } catch (_) {}
+    try { observer && observer.disconnect(); } catch (_) {}
+    try { clearInterval(scrollTimer); } catch (_) {}
+
+    if (expectedTotal != null && found < expectedTotal) {
+      console.warn('[TrailMix] Expansion timed out before reaching expected total; proceeding with partial DOM results');
+    }
+  } catch (e) {
+    // Non-fatal; proceed with whatever is visible
+    try { console.warn('[TrailMix] expandPurchasesIfNeeded failed:', e?.message || String(e)); } catch (_) {}
+  }
 }
 
 // Wait for DOM to be ready (skip in test environment)
@@ -467,7 +605,7 @@ async function handleScrapePurchases(sendResponse) {
       return;
     }
 
-    // DOM mode: wait briefly for purchases list, then scrape using canonical selectors
+    // DOM mode: wait briefly for purchases list, then optionally expand via View All
     try {
       console.log('[TrailMix] Waiting for purchases list (canonical selector)…');
       await DOMUtils.waitForElement('#oh-container > div.purchases > ol', 5000);
@@ -486,6 +624,13 @@ async function handleScrapePurchases(sendResponse) {
       console.error('Purchases list not found via canonical selectors');
       sendResponse({ error: 'Purchases list not found' });
       return;
+    }
+
+    // Attempt expansion if appropriate (internal-only metadata; public response unchanged)
+    try {
+      await expandPurchasesIfNeeded({ listEl });
+    } catch (e) {
+      try { console.warn('[TrailMix] View-All expansion attempt failed:', e?.message || String(e)); } catch (_) {}
     }
 
     const itemNodes = Array.from(listEl.children).filter(n => n && n.tagName === 'DIV');
@@ -514,7 +659,9 @@ async function handleScrapePurchases(sendResponse) {
           itemType: '',
           downloadUrl
         });
-      } catch (_) {}
+      } catch (err) {
+        try { console.warn('[TrailMix] Error processing purchase item:', err?.message || String(err)); } catch (_) {}
+      }
     }
 
     if (purchases.length === 0) {
