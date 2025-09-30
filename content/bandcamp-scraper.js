@@ -467,7 +467,19 @@ async function handleScrapePurchases(sendResponse) {
       return;
     }
 
-    // DOM mode: scrape visible, downloadable-only items using canonical selectors
+    // DOM mode: wait briefly for purchases list, then scrape using canonical selectors
+    try {
+      console.log('[TrailMix] Waiting for purchases list (canonical selector)…');
+      await DOMUtils.waitForElement('#oh-container > div.purchases > ol', 5000);
+    } catch (_) {
+      try {
+        console.log('[TrailMix] Canonical selector not ready; trying fallback selector…');
+        await DOMUtils.waitForElement('#oh-container div.purchases > ol', 5000);
+      } catch (_) {
+        // proceed to query below; will error if not found
+      }
+    }
+
     const listEl = document.querySelector('#oh-container > div.purchases > ol') ||
                    document.querySelector('#oh-container div.purchases > ol');
     if (!listEl) {
