@@ -476,7 +476,7 @@ async function handleScrapePurchases(sendResponse) {
       return;
     }
 
-    const itemNodes = listEl.querySelectorAll(':scope > div');
+    const itemNodes = Array.from(listEl.children).filter(n => n && n.tagName === 'DIV');
     if (!itemNodes || itemNodes.length === 0) {
       console.error('Purchases items not found (no direct div children)');
       sendResponse({ error: 'No purchases found in list' });
