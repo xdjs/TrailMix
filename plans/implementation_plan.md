@@ -751,6 +751,43 @@ Additional outcome:
   - [ ] Long-running download sessions
   - [ ] Memory usage monitoring
 
+**Task 4.10: Convert Popup to Side Panel UI**
+- [ ] Update manifest.json configuration:
+  - [ ] Add `"sidePanel"` permission
+  - [ ] Add `side_panel` configuration with `default_path`
+  - [ ] Keep or remove `action.default_popup` (decision: remove for side-panel-only)
+- [ ] Refactor UI files:
+  - [ ] Rename `popup/` directory to `sidepanel/`
+  - [ ] Update `popup.html` → `sidepanel.html` references
+  - [ ] Update `popup.js` → `sidepanel.js` references
+  - [ ] Update `popup.css` → `sidepanel.css` references
+- [ ] Adjust CSS for side panel layout:
+  - [ ] Increase max-width from 400px to fit side panel width
+  - [ ] Optimize layout for vertical scrolling
+  - [ ] Ensure responsive design for resizable side panel
+- [ ] Update service worker:
+  - [ ] Add `chrome.sidePanel.setPanelBehavior()` to open on action click
+  - [ ] Optionally open side panel when downloads start
+  - [ ] Update message passing to work with side panel context
+- [ ] Update tests:
+  - [ ] Rename `tests/unit/popup.test.js` → `sidepanel.test.js`
+  - [ ] Update test references to side panel files
+  - [ ] Verify all existing tests still pass
+- [ ] Update documentation:
+  - [ ] Update README.md with side panel instructions
+  - [ ] Update screenshots if present
+  - [ ] Document side panel benefits for users
+
+**Benefits:**
+- Persistent UI during downloads (doesn't close on click-away)
+- Better suited for long-running operations
+- More screen real estate for progress tracking
+- Modern Chrome extension UX pattern
+
+**Trade-offs:**
+- Requires Chrome 114+ (current stable: 140, so not an issue)
+- Different interaction pattern than popup
+
 **Unit Tests:**
 - [x] Test single download functionality
 - [ ] Test new queue data structure operations
@@ -758,6 +795,8 @@ Additional outcome:
 - [ ] Test retry logic with exponential backoff
 - [ ] Test error classification and handling
 - [ ] Test pause/resume state management
+- [ ] Test side panel opens correctly
+- [ ] Test side panel messaging with service worker
 
 **Acceptance Tests:**
 - [x] **AC4.1.1**: Single download completes successfully
@@ -775,6 +814,10 @@ Additional outcome:
 - [ ] **AC4.8.2**: Memory usage acceptable for ZIP processing
 - [ ] **AC4.9.1**: Large queues (50+ items) process reliably
 - [ ] **AC4.9.2**: Memory usage remains stable during long sessions
+- [ ] **AC4.10.1**: Side panel opens when extension icon is clicked
+- [ ] **AC4.10.2**: Side panel remains open during downloads
+- [ ] **AC4.10.3**: Side panel UI displays correctly in wider layout
+- [ ] **AC4.10.4**: All existing functionality works in side panel context
 
 ### Phase 5: Metadata & File Organization (Week 5)
 
