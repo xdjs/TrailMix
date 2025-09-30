@@ -269,7 +269,8 @@ async function expandPurchasesIfNeeded({ listEl, pollMs = EXPAND_CONST.pollMs, s
     // Build candidate scrollers (page + relevant containers) and scroll to bottom periodically
     const pageScroller = document.scrollingElement || document.documentElement || document.body;
     const purchasesContainer = document.querySelector('#oh-container > div.purchases') || (listEl && listEl.parentElement) || null;
-    const candidates = [pageScroller, purchasesContainer, listEl].filter(Boolean);
+    const outerContainer = document.querySelector('#oh-container') || null;
+    const candidates = [pageScroller, outerContainer, purchasesContainer, listEl].filter(Boolean);
 
     const getHeights = (el) => ({
       sh: (el && el.scrollHeight) || 0,
@@ -281,10 +282,9 @@ async function expandPurchasesIfNeeded({ listEl, pollMs = EXPAND_CONST.pollMs, s
         for (const el of candidates) {
           const { sh, ch } = getHeights(el);
           if (sh > ch) {
-            // Scroll just shy of bottom to trigger on-approach lazy loads
-            el.scrollTop = Math.max(0, sh - (ch > 0 ? ch / 2 : 1));
-            // Then nudge to very bottom
+            // Jump to bottom aggressively
             el.scrollTop = sh;
+            try { el.dispatchEvent(new Event('scroll', { bubbles: true })); } catch (_) {}
             if (sh !== lastScrollHeight) {
               lastScrollHeight = sh;
               lastChange = Date.now();
@@ -293,7 +293,16 @@ async function expandPurchasesIfNeeded({ listEl, pollMs = EXPAND_CONST.pollMs, s
         }
       } catch (_) {}
     };
-    const scrollTimer = setInterval(scrollTick, 250);
+    // Aggressive burst: drive to bottom every frame briefly to kick off lazy load immediately
+    const aggressiveBurst = async (ms = 2000) => {
+      const end = performance.now() + ms;
+      while (performance.now() < end) {
+        scrollTick();
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    };
+    await aggressiveBurst(2500);
+    const scrollTimer = setInterval(scrollTick, 150);
 
     while (Date.now() < deadline) {
       if (expectedTotal != null && found >= expectedTotal) {
