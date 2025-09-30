@@ -121,6 +121,18 @@ const chromeMock = {
         setTimeout(() => callback(mockCookies), 0);
       }
     })
+  },
+
+  sidePanel: {
+    setPanelBehavior: jest.fn((options) => {
+      return Promise.resolve();
+    }),
+    open: jest.fn((options) => {
+      return Promise.resolve();
+    }),
+    setOptions: jest.fn((options) => {
+      return Promise.resolve();
+    })
   }
 };
 
