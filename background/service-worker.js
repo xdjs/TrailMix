@@ -563,12 +563,16 @@ async function discoverPurchases() {
     // Now scrape purchases from the collection page
     let scrapeResponse;
     try {
+      // Ensure the Bandcamp tab is foregrounded during discovery to avoid background throttling
+      try { await chrome.tabs.update(tab.id, { active: true }); } catch (_) {}
       scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
     } catch (error) {
       // Content script might not be loaded, reload and retry once
       console.log('Failed to connect for scraping, reloading tab and retrying...');
       await chrome.tabs.reload(tab.id);
       await new Promise(resolve => setTimeout(resolve, 3000));
+      // Foreground again after reload
+      try { await chrome.tabs.update(tab.id, { active: true }); } catch (_) {}
       scrapeResponse = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PURCHASES' });
     }
 

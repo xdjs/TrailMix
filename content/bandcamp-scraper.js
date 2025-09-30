@@ -156,7 +156,7 @@ function initialize() {
   console.log('Trail Mix: DOM ready, initializing...');
   
   // Check if we're on a Bandcamp page
-  if (!isBandcampPage()) {
+if (!isBandcampPage()) {
     console.log('Not a Bandcamp page, content script inactive');
     return;
   }
@@ -164,6 +164,201 @@ function initialize() {
   console.log('Bandcamp page detected, content script active');
   setupMessageListener();
 }
+
+// ------------------------
+// Task 3.6: View-All Expansion Helper (DOM-only)
+// ------------------------
+const EXPAND_CONST = {
+  pollMs: 300,
+  stableWindowMs: 1500,
+  retryWindowMs: 2000,
+  overallTimeoutMs: 30000 // allow up to 30s when expanding
+};
+
+function getExpectedTotalFromSummary() {
+  try {
+    const summaryEl = document.querySelector('#oh-container > div:nth-child(2) > span');
+    if (!summaryEl) return null;
+    const text = String(summaryEl.textContent || '');
+    const m = text.match(/\b(\d{1,6})\b(?=[^\d]*$)/); // last number (M)
+    if (m) return parseInt(m[1], 10);
+    const numSpans = summaryEl.querySelector('span.page-items-number');
+    if (numSpans) {
+      const n = parseInt(String(numSpans.textContent || '0').replace(/[^\d]/g, ''), 10);
+      if (!Number.isNaN(n)) return n; // fallback if only one number present
+    }
+  } catch (_) {}
+  return null;
+}
+
+function getVisibleCountStrict(listEl) {
+  try {
+    if (!listEl) return 0;
+    return Array.from(listEl.children).filter(n => n && n.tagName === 'DIV').length;
+  } catch (_) { return 0; }
+}
+
+function findViewAllButton() {
+  try {
+    const btn = document.querySelector('#oh-container > div.purchases > div > button');
+    if (!btn) return null;
+    const txt = (btn.textContent || '').toLowerCase();
+    if (/view\s+all/.test(txt) && /purchase/.test(txt)) return btn;
+  } catch (_) {}
+  return null;
+}
+
+async function expandPurchasesIfNeeded({ listEl, pollMs = EXPAND_CONST.pollMs, stableWindowMs = EXPAND_CONST.stableWindowMs, retryWindowMs = EXPAND_CONST.retryWindowMs, overallTimeoutMs = EXPAND_CONST.overallTimeoutMs } = {}) {
+  try {
+    const expectedTotal = getExpectedTotalFromSummary();
+    if (expectedTotal != null) console.log('[TrailMix] expectedTotal:', expectedTotal);
+
+    const initialCount = getVisibleCountStrict(listEl);
+    console.log(`[TrailMix] Baseline visible=${initialCount}${expectedTotal != null ? ` of expected=${expectedTotal}` : ''}`);
+
+    const btn = findViewAllButton();
+    if (!btn || expectedTotal == null || initialCount >= expectedTotal) {
+      return; // nothing to do or totals unknown
+    }
+
+    console.log('[TrailMix] View All button detected; attempting expansion…');
+    const buttonTotal = (() => {
+      const t = (btn.textContent || '');
+      const m = t.match(/\d{1,6}/);
+      return m ? parseInt(m[0], 10) : null;
+    })();
+    if (buttonTotal != null) console.log('[TrailMix] buttonTotal:', buttonTotal);
+
+    try { btn.click(); console.log('[TrailMix] Clicked View All'); } catch (e) { console.warn('[TrailMix] Failed to click View All:', e?.message || String(e)); }
+
+    // Optional re-click if still present/visible after retryWindowMs
+    setTimeout(() => {
+      try {
+        const again = findViewAllButton();
+        if (again && again.offsetParent !== null) {
+          console.log('[TrailMix] Retrying View All click…');
+          again.click();
+        }
+      } catch (_) {}
+    }, retryWindowMs);
+
+    const deadline = Date.now() + Math.min(overallTimeoutMs, 30000);
+    let found = initialCount;
+    let lastChange = Date.now();
+    let observer;
+    let lastScrollHeight = 0;
+
+    const onMut = () => {
+      const cur = getVisibleCountStrict(listEl);
+      if (cur !== found) {
+        found = cur;
+        lastChange = Date.now();
+        console.log(`[TrailMix] growth: visible=${found} of expected=${expectedTotal}`);
+      }
+    };
+
+    try {
+      observer = new MutationObserver(onMut);
+      observer.observe(listEl, { childList: true });
+    } catch (_) {}
+
+    // Poll fallback
+    const pollTimer = setInterval(onMut, pollMs);
+
+    // Gentle auto-scroll to trigger lazy loading (page-level)
+    // Build candidate scrollers (page + relevant containers) and scroll to bottom periodically
+    const pageScroller = document.scrollingElement || document.documentElement || document.body;
+    const purchasesContainer = document.querySelector('#oh-container > div.purchases') || (listEl && listEl.parentElement) || null;
+    const outerContainer = document.querySelector('#oh-container') || null;
+    const candidates = [pageScroller, outerContainer, purchasesContainer, listEl].filter(Boolean);
+
+    const getHeights = (el) => ({
+      sh: (el && el.scrollHeight) || 0,
+      ch: (el && el.clientHeight) || 0
+    });
+
+    const forceWindowToBottom = () => {
+      try {
+        const d = document;
+        const de = d.documentElement;
+        const b = d.body;
+        const h = Math.max(
+          (de && de.scrollHeight) || 0,
+          (b && b.scrollHeight) || 0
+        );
+        // Multiple strategies to force window bottom
+        try { window.scrollTo(0, h); } catch (_) {}
+        try { if (de) de.scrollTop = h; } catch (_) {}
+        try { if (b) b.scrollTop = h; } catch (_) {}
+      } catch (_) {}
+    };
+
+    const forceElementToBottom = (el) => {
+      try {
+        if (!el) return;
+        const sh = el.scrollHeight || 0;
+        el.scrollTop = sh;
+        try { el.dispatchEvent(new Event('scroll', { bubbles: true })); } catch (_) {}
+        // Nudge via last child scrollIntoView if present
+        try { el.lastElementChild && el.lastElementChild.scrollIntoView({ block: 'end' }); } catch (_) {}
+      } catch (_) {}
+    };
+
+    const scrollTick = () => {
+      try {
+        forceWindowToBottom();
+        for (const el of candidates) {
+          const { sh, ch } = getHeights(el);
+          if (sh > ch) {
+            forceElementToBottom(el);
+            if (sh !== lastScrollHeight) {
+              lastScrollHeight = sh;
+              lastChange = Date.now();
+            }
+          }
+        }
+      } catch (_) {}
+    };
+    // Aggressive burst: drive to bottom every frame briefly to kick off lazy load immediately
+    const aggressiveBurst = async (ms = 2000) => {
+      const end = performance.now() + ms;
+      while (performance.now() < end) {
+        scrollTick();
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    };
+    await aggressiveBurst(2500);
+    const scrollTimer = setInterval(scrollTick, 150);
+
+    while (Date.now() < deadline) {
+      if (expectedTotal != null && found >= expectedTotal) {
+        console.log('[TrailMix] Early-stop: reached expected total');
+        break;
+      }
+      // If nothing changes for a stability window, keep trying until deadline (no early bail here since totals are known)
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    try { clearInterval(pollTimer); } catch (_) {}
+    try { observer && observer.disconnect(); } catch (_) {}
+    try { clearInterval(scrollTimer); } catch (_) {}
+
+    if (expectedTotal != null && found < expectedTotal) {
+      console.warn('[TrailMix] Expansion timed out before reaching expected total; proceeding with partial DOM results');
+    }
+  } catch (e) {
+    // Non-fatal; proceed with whatever is visible
+    try { console.warn('[TrailMix] expandPurchasesIfNeeded failed:', e?.message || String(e)); } catch (_) {}
+  }
+}
+
+// Expose helpers for testing only
+try {
+  if (typeof window !== 'undefined' && typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') {
+    window.__expandPurchasesIfNeeded = expandPurchasesIfNeeded;
+    window.__getExpectedTotalFromSummary = getExpectedTotalFromSummary;
+  }
+} catch (_) {}
 
 // Wait for DOM to be ready (skip in test environment)
 if (typeof document !== 'undefined') {
@@ -455,182 +650,84 @@ try {
     window.__handleNavigateToPurchases = handleNavigateToPurchases;
   }
 } catch (_) {}
-// Scrape purchases page
+// Scrape purchases page (Refactored: DOM-only with known selectors)
 async function handleScrapePurchases(sendResponse) {
   try {
-    console.log('Scraping purchases page...');
+    console.log('Scraping purchases page (DOM-only refactor)...');
 
-    // Check if we're on a purchases page
+    // Must be on purchases page
     const isPurchasesPage = window.location.pathname.includes('/purchases');
-    const isCollectionPage = window.location.hostname === 'bandcamp.com' &&
-                            (window.location.pathname.match(/^\/[^\/]+\/?$/) ||
-                             window.location.pathname.includes('/collection'));
-
-    if (!isPurchasesPage && !isCollectionPage) {
-      sendResponse({ error: 'Not on purchases or collection page' });
+    if (!isPurchasesPage) {
+      sendResponse({ error: 'Not on purchases page' });
       return;
     }
 
-    // Try to extract data from pagedata blob first (purchases page)
-    if (isPurchasesPage) {
-      try {
-        // Ensure pagedata is available (wait up to 10s)
-        await DOMUtils.waitForElement('#pagedata', 10000);
-      } catch (_) {
-        console.log('Pagedata not found within timeout, falling back to DOM scraping');
-      }
-
-      const pageDataElement = document.getElementById('pagedata');
-      if (pageDataElement) {
-        try {
-          const raw = pageDataElement.getAttribute('data-blob');
-          const pageData = JSON.parse(raw);
-          if (pageData && pageData.orderhistory && Array.isArray(pageData.orderhistory.items)) {
-            const allItems = pageData.orderhistory.items;
-            const purchases = [];
-
-            const decodeHtml = (str) => {
-              if (!str) return str;
-              const el = document.createElement('textarea');
-              el.innerHTML = str;
-              return el.value;
-            };
-            const toAbsolute = (href) => {
-              try { return new URL(href, window.location.origin).href; } catch (_) { return href; }
-            };
-
-            for (const item of allItems) {
-              // Only process items with a direct download URL (digital purchases)
-              if (!item.download_url) continue;
-
-              const decoded = decodeHtml(item.download_url);
-              const absoluteUrl = toAbsolute(decoded);
-
-              purchases.push({
-                title: item.item_title || 'Unknown Title',
-                artist: item.artist_name || item.seller_name || 'Unknown Artist',
-                url: item.item_url || '',
-                artworkUrl: item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_2.jpg` : '',
-                purchaseDate: item.payment_date || '',
-                itemType: item.download_type === 't' ? 'track' : 'album',
-                downloadUrl: absoluteUrl
-              });
-            }
-
-            console.log(`Successfully scraped ${purchases.length} downloadable purchases from pagedata (items=${allItems.length})`);
-
-            sendResponse({
-              success: true,
-              purchases,
-              totalCount: purchases.length,
-              totals: { items: allItems.length, downloadable: purchases.length }
-            });
-            return;
-          }
-        } catch (err) {
-          console.error('Error parsing pagedata:', err);
-          // Fall through to DOM scraping
-        }
-      }
-    }
-
-    // Wait for collection items to load
+    // DOM mode: wait briefly for purchases list, then optionally expand via View All
     try {
-      await DOMUtils.waitForElement('.collection-grid, .collection-items, .collection-item-container, ol.collection-grid', 10000);
-    } catch (err) {
-      console.log('No collection grid found, checking for other selectors...');
-    }
-
-    // Find all purchase items - try multiple selectors for the collection page
-    const purchaseSelectors = [
-      'ol.collection-grid li.collection-item-container',  // Main collection grid items
-      'li.collection-item-container',
-      '.collection-grid .collection-item-container',
-      '.collection-items .collection-item-container',
-      '.collection-item',
-      'li[data-itemid]',  // Items with data attributes
-      '.fan-collection li'
-    ];
-
-    let purchaseElements = [];
-    for (const selector of purchaseSelectors) {
-      purchaseElements = document.querySelectorAll(selector);
-      if (purchaseElements.length > 0) {
-        console.log(`Found ${purchaseElements.length} items using selector: ${selector}`);
-        break;
+      console.log('[TrailMix] Waiting for purchases list (canonical selector)…');
+      await DOMUtils.waitForElement('#oh-container > div.purchases > ol', 5000);
+    } catch (_) {
+      try {
+        console.log('[TrailMix] Canonical selector not ready; trying fallback selector…');
+        await DOMUtils.waitForElement('#oh-container div.purchases > ol', 5000);
+      } catch (_) {
+        // proceed to query below; will error if not found
       }
     }
 
-    if (purchaseElements.length === 0) {
-      sendResponse({
-        success: true,
-        purchases: [],
-        message: 'No purchases found on page'
-      });
+    const listEl = document.querySelector('#oh-container > div.purchases > ol') ||
+                   document.querySelector('#oh-container div.purchases > ol');
+    if (!listEl) {
+      console.error('Purchases list not found via canonical selectors');
+      sendResponse({ error: 'Purchases list not found' });
       return;
     }
+
+    // Attempt expansion if appropriate (internal-only metadata; public response unchanged)
+    try {
+      await expandPurchasesIfNeeded({ listEl });
+    } catch (e) {
+      try { console.warn('[TrailMix] View-All expansion attempt failed:', e?.message || String(e)); } catch (_) {}
+    }
+
+    const itemNodes = Array.from(listEl.children).filter(n => n && n.tagName === 'DIV');
+    if (!itemNodes || itemNodes.length === 0) {
+      console.error('Purchases items not found (no direct div children)');
+      sendResponse({ error: 'No purchases found in list' });
+      return;
+    }
+
+    const toAbsolute = (href) => {
+      try { return new URL(href, window.location.origin).href; } catch (_) { return href; }
+    };
 
     const purchases = [];
-
-    for (const element of purchaseElements) {
+    for (const el of itemNodes) {
       try {
-        // Extract album/track title
-        const titleElement = element.querySelector('.collection-item-title, .item-title, a.item-link');
-        const title = DOMUtils.getTextContent(titleElement);
-
-        // Extract artist name
-        const artistElement = element.querySelector('.collection-item-artist, .item-artist, .by-artist a');
-        const artist = DOMUtils.getTextContent(artistElement).replace(/^by\s+/, '');
-
-        // Extract URL
-        const linkElement = element.querySelector('a.item-link, a.collection-item-link, a[href*="/album/"], a[href*="/track/"]');
-        const url = linkElement ? linkElement.href : '';
-
-        // Extract artwork URL
-        const artworkElement = element.querySelector('img.collection-item-art, img.item-art, img[src*=".jpg"], img[src*=".png"]');
-        const artworkUrl = artworkElement ? artworkElement.src : '';
-
-        // Extract purchase date if available
-        const dateElement = element.querySelector('.collection-item-date, .purchase-date');
-        const purchaseDate = DOMUtils.getTextContent(dateElement);
-
-        // Extract item type (album or track)
-        const itemType = url.includes('/track/') ? 'track' : 'album';
-
-        // Extract download link if available (only on purchases page)
-        let downloadUrl = null;
-        if (isPurchasesPage) {
-          // Look for download links within the item container
-          const downloadLink = element.querySelector('a[href*="/download/album"], a[href*="/download/track"], a.download-link, .download-col a');
-          if (downloadLink) {
-            downloadUrl = downloadLink.href;
-            console.log(`Found download link for ${title}: ${downloadUrl}`);
-          }
-        }
-
-        if (title && url) {
-          purchases.push({
-            title,
-            artist: artist || 'Unknown Artist',
-            url,
-            artworkUrl,
-            purchaseDate: purchaseDate || '',
-            itemType,
-            downloadUrl  // Include download URL if found
-          });
-        }
+        const a = el.querySelector('a[data-tid="download"]');
+        if (!a || !a.getAttribute('href')) continue; // downloadable-only
+        const downloadUrl = toAbsolute(a.getAttribute('href'));
+        purchases.push({
+          title: '',
+          artist: '',
+          url: '',
+          artworkUrl: '',
+          purchaseDate: '',
+          itemType: '',
+          downloadUrl
+        });
       } catch (err) {
-        console.error('Error parsing purchase item:', err);
+        try { console.warn('[TrailMix] Error processing purchase item:', err?.message || String(err)); } catch (_) {}
       }
     }
 
-    console.log(`Successfully scraped ${purchases.length} purchases`);
+    if (purchases.length === 0) {
+      console.error('No downloadable items found in DOM mode');
+      sendResponse({ error: 'No downloadable purchases found' });
+      return;
+    }
 
-    sendResponse({
-      success: true,
-      purchases,
-      totalCount: purchases.length
-    });
+    sendResponse({ success: true, purchases, totalCount: purchases.length });
 
   } catch (error) {
     console.error('Error scraping purchases:', error);

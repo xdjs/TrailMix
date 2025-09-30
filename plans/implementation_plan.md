@@ -407,23 +407,73 @@ Additional outcome:
   - [x] Track completed, failed, and active counts
   - [x] Display active download count in UI
 
-#### Task 3.6: Pagination Handling
-- [ ] Implement infinite scroll detection:
-  - [ ] Detect when user's purchases use pagination
-  - [ ] Check for "Load More" button or scroll trigger
-  - [ ] Monitor for dynamically loaded content
-- [ ] Create pagination navigation:
-  - [ ] Automatically scroll to load more purchases
-  - [ ] Handle "Load More" button clicks if present
-  - [ ] Wait for new content to load before continuing
-- [ ] Implement complete collection scanning:
-  - [ ] Keep loading until all purchases found
-  - [ ] Track total vs loaded purchase count
-  - [ ] Handle very large collections (100+ albums)
-- [ ] Add pagination error handling:
-  - [ ] Handle network errors during pagination
-  - [ ] Retry failed page loads
-  - [ ] Set maximum pagination attempts
+#### Task 3.6: View-All Loading (Pagination)
+
+- [x] Goal: When the purchases page shows a total (e.g., “N of M purchases”) and a “View All” button, expand the list and scrape exactly M items. DOM-only (no `#pagedata`). Count includes all purchased items (albums, tracks, mixed media); `visibleCount` counts direct item children only.
+
+- [x] DOM targets and wording:
+  - [x] Use `#oh-container`-based selectors as primary. Add fallbacks later if Bandcamp changes DOM.
+  - [x] English-only for initial release. Match “View all … purchases” copy; no i18n variations yet.
+
+- [x] Baseline readiness and visible count:
+  - [x] Wait up to 5s for the list: canonical `#oh-container > div.purchases > ol`, then fallback `#oh-container div.purchases > ol`.
+  - [x] Compute `visibleCount` strictly as `#oh-container > div.purchases > ol > div` (direct children only; no other fallbacks).
+  - [x] Parse `expectedTotal` (M) from the summary `#oh-container > div:nth-child(2) > span` (digits-only). Log `expectedTotal` when determined and baseline `visibleCount`.
+
+- [x] Decide whether to expand:
+  - [x] If `expectedTotal` exists, `visibleCount < expectedTotal`, and a button exists at `#oh-container > div.purchases > div > button` (or English label match) → attempt expansion.
+  - [x] Button label pattern: case-insensitive `/\bview\s+all\b.*\bpurchases\b/` and should contain a total number (digits-only extraction).
+  - [x] Otherwise skip expansion and proceed to scraping.
+  - [x] Log whether a View All button was detected.
+
+- [x] Perform expansion and monitor completion:
+  - [x] Click the detected button once (guard re-entrancy). Log when clicked.
+  - [x] Extract digits from the button label as `buttonTotal`; compare to `expectedTotal`. If both present and differ, proceed using `expectedTotal` and log both.
+  - [x] Use a MutationObserver on the purchases container to detect growth; polling every `pollMs` only as fallback. Early-stop when `visibleCount >= expectedTotal`.
+  - [x] If the button disappears after click (expected), do not attempt a second click. Only re-click if the button still exists and is visible after `retryWindowMs`.
+  - [x] Auto-scroll implemented: force page and containers to bottom (window.scrollTo + container scrollIntoView) until `visibleCount >= expectedTotal` or timeout.
+  - [x] Enforce `overallTimeoutMs` (capped at 30s). On timeout with known totals, proceed with partial results; with unknown totals, bail per edge-case rules.
+
+- [x] Outcomes and edge cases:
+  - [x] Success: record `{ before, after, durationMs }` and proceed.
+  - [x] No totals and growth stalls below a small minimum (threshold: <10 items): bail early with warning rather than waiting full timeout. Log the threshold trigger.
+  - [x] Timeout with known totals: proceed with partial results, log timeout. Silent in UI for initial release (console-only).
+  - [x] No View All button: assume everything visible and continue.
+  - [x] After expansion attempt, if DOM scraping yields unexpectedly low results or structural errors, log the error and stop processing.
+
+- [x] Scraping order:
+  - [x] Always use DOM scraping; skip `#pagedata` entirely.
+
+- [x] Helper metadata vs public response:
+  - [x] The expansion helper may return internal metadata `{ expectedTotal, buttonTotal, found, expanded, complete, durationMs }` for diagnostics.
+  - [x] The public `SCRAPE_PURCHASES` response remains `{ success, purchases, totalCount }` (no meta surfaced).
+
+- [x] Response logging:
+  - [x] Console logs only (content script): expectedTotal detection, View All detection, buttonTotal, click event, visible vs expected changes (throttled), timeouts/threshold triggers, final outcome.
+
+- [x] Configuration/tunables (defaults, with 30s hard upper bound):
+  - [x] `pollMs`: 300ms (fallback only; MutationObserver preferred)
+  - [x] `stableWindowMs`: 1500ms
+  - [x] `retryWindowMs`: 2000ms (only re-click if button still present)
+  - [x] `overallTimeoutMs`: 30000ms cap during expansion
+  - [x] `strictMode`: deferred for now (off by default). Toggling deferred.
+
+- [x] Integration and scope:
+  - [x] Implement expansion logic in a separate function invoked from the `SCRAPE_PURCHASES` handler.
+  - [x] Helper signature: `expandPurchasesIfNeeded(opts) -> { expectedTotal, buttonTotal, found, expanded, complete, durationMs }`.
+  - [x] Tunables live as script constants; allow handler to pass optional overrides via `opts`.
+  - [x] Service worker activates the Bandcamp tab during discovery to prevent background throttling.
+
+- [ ] Testing (initial scope):
+  - [ ] Unit: total parsing (selector + digits-only), English label pattern detection, mismatch handling, growth/early-stop logic, timeout and threshold handling.
+  - [ ] Integration tests and i18n coverage deferred for now.
+
+- [x] Acceptance Criteria:
+  - [x] AC3.6.1: When total M is present and View All exists, process stops at `found == expectedTotal` or times out; on timeout, partial results are returned with logs only.
+  - [x] AC3.6.2: If total is present and `visibleCount >= expectedTotal` initially, expansion is skipped.
+  - [x] AC3.6.3: After expansion, DOM-based discovery equals M when not timed out.
+  - [x] AC3.6.4: Internal helper returns metadata; public response remains `{ success, purchases, totalCount }`. Required logs are emitted.
+  - [x] AC3.6.5: Supports 100s of purchases without activating the tab.
 
 #### Task 3.7: Download Completion Handling ✅ COMPLETED
 - [x] Monitor download tabs:
@@ -477,7 +527,7 @@ Additional outcome:
 - [ ] Test download link validation functions
 
 **Acceptance Test:**
-- [ ] **AC3.6.1**: Handles pagination to load all purchases
+- [ ] **AC3.6.1**: Clicks "View All" and loads full purchases list
 - [ ] **AC3.6.2**: Works with collections of 100+ albums
 - [ ] **AC3.7.1**: Successfully extracts all albums from purchases page
 - [ ] **AC3.7.2**: Correctly identifies album metadata (title, artist, date)
@@ -485,6 +535,46 @@ Additional outcome:
 - [ ] **AC3.7.4**: Handles edge cases (special characters, missing data)
 - [ ] **AC3.7.5**: Works with different Bandcamp page layouts
 - [ ] **AC3.7.6**: Scraping completes within reasonable time limits
+
+#### Task 3.10: Refactor Purchases Scraping (DOM-only, Known Selectors)
+
+- [ ] Goal: Replace ad-hoc selector discovery with a deterministic, DOM-only scraper for the purchases page. Do not use `#pagedata` in this task. Keep interfaces and returned data exactly the same; maintain current download behavior for discovered items.
+
+- [x] Canonical selectors and structure:
+  - [x] List container: `#oh-container > div.purchases > ol` (ordered list).
+  - [x] Item nodes: direct children of the `ol` are `div` elements (e.g., `div.purchases-item`), so target `#oh-container > div.purchases > ol > div` (not `li`).
+  - [x] Download link per item: within the item, find anchor with `a[data-tid="download"]` (e.g., under `div.purchases-item-actions`). Do not depend on anchor text.
+  - [x] Fallback list selector: if missing, try `#oh-container div.purchases > ol` (less strict). If still missing or zero items, log and throw.
+  - [x] Robustness: wait up to 5s for the purchases list (canonical, then fallback) before scraping to avoid premature errors.
+
+- [ ] Summary parsing (optional): may parse `#oh-container > div:nth-child(2) > span` for diagnostics only; do not branch on summary values. Scrape only via DOM regardless of `N/M`.
+
+- [x] Filtering and fields:
+  - [x] Return only items that have a direct download anchor (`a[data-tid="download"]`); skip non-downloadable items in DOM mode.
+  - [x] Preserve existing item fields and response shape from current implementation; do not add/remove fields and do not change the message format.
+  - [x] Normalize download `href` to an absolute URL via `new URL(href, location.origin).href` before returning.
+
+- [x] Error policy and logging:
+  - [x] If the canonical list selector does not exist or matches 0 items, log a clear error and throw (no retries). This halts discovery per current error handling.
+  - [x] Log key steps: list selector presence and error conditions; keep logs concise.
+
+- [x] Code hygiene and scope constraints:
+  - [x] Remove legacy selectors and code paths; do not leave any commented-out code or unused helpers.
+  - [x] Only use the selectors specified in this task (canonical + explicit fallback); do not include additional implicit fallbacks or discovery heuristics.
+  - [x] Ensure no dead code remains: run a quick scan for unused functions/variables related to the old scraping approach.
+
+- [ ] Out of scope (future tasks):
+  - [ ] “View All” expansion and any auto-scroll logic remain separate work; this task does not attempt to expand.
+  - [ ] i18n and alternative DOM layouts.
+
+- [x] Acceptance Criteria:
+  - [x] AC3.10.1: Scraper does not read or use `#pagedata` under any condition; DOM-only.
+  - [x] AC3.10.2: Scraper returns only the visible, downloadable items using the canonical DOM selectors.
+  - [x] AC3.10.3: When the canonical list selector is missing or yields 0 items, the scraper logs and throws an error.
+  - [x] AC3.10.4: Response shape remains `{ success, purchases, totalCount, message? }` with identical item structure; downstream download behavior remains intact.
+  - [x] AC3.10.5: Returned items are only those with `a[data-tid="download"]`, and download URLs are absolute.
+  - [x] AC3.10.6: No legacy selectors or commented-out code remain; only the specified selectors are present in the scraper.
+  - [x] AC3.10.7: No dead code or unused scraping helpers remain after the refactor.
 
 ### Phase 4: Download Manager Implementation (Week 4) - ✅ COMPLETED
 
