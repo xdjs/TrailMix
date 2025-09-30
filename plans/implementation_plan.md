@@ -904,11 +904,11 @@ Additional outcome:
    - [x] Height: 22px (currently 20px)
    - [x] Maintain rounded pill shape with 11px radius
 
-5. [ ] Update Layout System:
-   - [ ] Card/section border radius: 16px (currently 6px)
-   - [ ] Add subtle shadows: `0 1px 3px rgba(0, 0, 0, 0.08)`
-   - [ ] Maintain 16px base spacing (already correct)
-   - [ ] Update progress section styling
+5. [x] Update Layout System:
+   - [x] Card/section border radius: 16px (currently 6px)
+   - [x] Add subtle shadows: `0 1px 3px rgba(0, 0, 0, 0.08)`
+   - [x] Maintain 16px base spacing (already correct)
+   - [x] Update progress section styling
 
 6. [ ] Polish and Refinements:
    - [ ] Update hover states for new colors
@@ -948,7 +948,7 @@ Additional outcome:
 - [x] **AC4.5.3**: Typography hierarchy matches style guide
 - [x] **AC4.5.4**: Buttons are 48px height with 12px radius
 - [x] **AC4.5.5**: Progress bar uses pink fill on lavender track
-- [ ] **AC4.5.6**: Cards have 16px radius with subtle shadows
+- [x] **AC4.5.6**: Cards have 16px radius with subtle shadows
 - [ ] **AC4.5.7**: All text meets WCAG AA contrast requirements
 - [x] **AC4.5.8**: UI remains functional and responsive
 
