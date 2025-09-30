@@ -880,13 +880,13 @@ Additional outcome:
    - [x] Update text colors throughout
    - [x] Fix Start Download button to use btn-primary (pink)
 
-2. [ ] Update Typography:
-   - [ ] Import Inter font from Google Fonts
-   - [ ] Update font-family to: `Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif`
-   - [ ] H1/App Title: 20px, Bold (currently 18px, 600)
-   - [ ] H2/Section Headers: 14px, Uppercase (add text-transform)
-   - [ ] Body/Status: 14px, Regular (keep current)
-   - [ ] Caption/Helper: 12px, Regular (keep current)
+2. [x] Update Typography:
+   - [x] Import Inter font from Google Fonts
+   - [x] Update font-family to: `Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif`
+   - [x] H1/App Title: 20px, Bold (currently 18px, 600)
+   - [x] H2/Section Headers: 14px, Uppercase (add text-transform)
+   - [x] Body/Status: 14px, Regular (keep current)
+   - [x] Caption/Helper: 12px, Regular (keep current)
 
 3. [ ] Update Button Styles:
    - [ ] Height: 48px (currently auto with 8px padding)
@@ -944,8 +944,8 @@ Additional outcome:
 
 **Acceptance Criteria:**
 - [x] **AC4.5.1**: All colors match style guide specification
-- [ ] **AC4.5.2**: Inter font loads and displays correctly
-- [ ] **AC4.5.3**: Typography hierarchy matches style guide
+- [x] **AC4.5.2**: Inter font loads and displays correctly
+- [x] **AC4.5.3**: Typography hierarchy matches style guide
 - [ ] **AC4.5.4**: Buttons are 48px height with 12px radius
 - [x] **AC4.5.5**: Progress bar uses pink fill on lavender track
 - [ ] **AC4.5.6**: Cards have 16px radius with subtle shadows
