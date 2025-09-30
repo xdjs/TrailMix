@@ -888,15 +888,15 @@ Additional outcome:
    - [x] Body/Status: 14px, Regular (keep current)
    - [x] Caption/Helper: 12px, Regular (keep current)
 
-3. [ ] Update Button Styles:
-   - [ ] Height: 48px (currently auto with 8px padding)
-   - [ ] Border radius: 12px (currently 4px)
-   - [ ] Horizontal padding: 16-24px (currently 16px - acceptable)
-   - [ ] Primary button: Pink (`#FF4EB6`)
-   - [ ] Warning button: `#F5B82E`
-   - [ ] Danger button: `#E74C3C`
-   - [ ] Success button: `#2ECC71`
-   - [ ] White text on all buttons
+3. [x] Update Button Styles:
+   - [x] Height: 48px (currently auto with 8px padding)
+   - [x] Border radius: 12px (currently 4px)
+   - [x] Horizontal padding: 16-24px (currently 16px - acceptable)
+   - [x] Primary button: Pink (`#FF4EB6`)
+   - [x] Warning button: `#F5B82E`
+   - [x] Danger button: `#E74C3C`
+   - [x] Success button: `#2ECC71`
+   - [x] White text on all buttons
 
 4. [ ] Update Progress Bar:
    - [ ] Track background: `rgba(109, 94, 119, 0.2)` (Lavender 20% opacity)
@@ -946,7 +946,7 @@ Additional outcome:
 - [x] **AC4.5.1**: All colors match style guide specification
 - [x] **AC4.5.2**: Inter font loads and displays correctly
 - [x] **AC4.5.3**: Typography hierarchy matches style guide
-- [ ] **AC4.5.4**: Buttons are 48px height with 12px radius
+- [x] **AC4.5.4**: Buttons are 48px height with 12px radius
 - [x] **AC4.5.5**: Progress bar uses pink fill on lavender track
 - [ ] **AC4.5.6**: Cards have 16px radius with subtle shadows
 - [ ] **AC4.5.7**: All text meets WCAG AA contrast requirements
