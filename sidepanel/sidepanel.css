@@ -1,4 +1,30 @@
-/* Bandcamp Downloader - Popup Styles */
+/* Trail Mix - Side Panel Styles */
+
+/* Style Guide Colors */
+:root {
+  /* Primary Colors */
+  --primary-pink: #FF4EB6;
+  --lavender-gray: #6D5E77;
+  --dark-text: #1E1E1E;
+  --background: #FAFAFA;
+
+  /* State Colors */
+  --success: #2ECC71;
+  --warning: #F5B82E;
+  --error: #E74C3C;
+  --white: #FFFFFF;
+
+  /* Derived Colors */
+  --lavender-light: rgba(109, 94, 119, 0.2);
+  --lavender-border: rgba(109, 94, 119, 0.4);
+  --text-secondary: #6D5E77;
+
+  /* Hover States (darker versions) */
+  --primary-pink-hover: #E6459E;
+  --success-hover: #27AE60;
+  --warning-hover: #E0A82E;
+  --error-hover: #C0392B;
+}
 
 * {
   margin: 0;
@@ -10,8 +36,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   line-height: 1.4;
-  color: #333;
-  background-color: #f8f9fa;
+  color: var(--dark-text);
+  background-color: var(--background);
   min-width: 300px;
   width: 100%;
 }
@@ -27,19 +53,19 @@ body {
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--lavender-border);
 }
 
 .title {
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--dark-text);
 }
 
 .version {
   font-size: 12px;
-  color: #666;
-  background-color: #e9ecef;
+  color: var(--text-secondary);
+  background-color: var(--lavender-light);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -60,29 +86,29 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #ffc107;
+  background-color: var(--warning);
 }
 
 .status-indicator.connected {
-  background-color: #28a745;
+  background-color: var(--success);
 }
 
 .status-indicator.error {
-  background-color: #dc3545;
+  background-color: var(--error);
 }
 
 .status-text {
   font-size: 13px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 /* Progress Section */
 .progress-section {
   margin-bottom: 16px;
   padding: 12px;
-  background-color: #fff;
+  background-color: var(--white);
   border-radius: 6px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--lavender-border);
 }
 
 .progress-header {
@@ -99,7 +125,7 @@ body {
 
 .progress-stats {
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .progress-bar-container {
@@ -109,15 +135,15 @@ body {
 
 .progress-bar {
   width: 100%;
-  height: 20px;
-  background-color: #e9ecef;
-  border-radius: 10px;
+  height: 22px;
+  background-color: var(--lavender-light);
+  border-radius: 11px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #28a745, #20c997);
+  background: var(--primary-pink);
   transition: width 0.3s ease;
 }
 
@@ -128,7 +154,7 @@ body {
   transform: translate(-50%, -50%);
   font-size: 11px;
   font-weight: 600;
-  color: #333;
+  color: var(--dark-text);
 }
 
 .current-item {
@@ -137,12 +163,12 @@ body {
 
 .current-album {
   font-weight: 600;
-  color: #333;
+  color: var(--dark-text);
   margin-bottom: 2px;
 }
 
 .current-track {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 /* Controls Section */
@@ -174,39 +200,39 @@ body {
 }
 
 .btn-primary {
-  background-color: #007bff;
-  color: white;
+  background-color: var(--primary-pink);
+  color: var(--white);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: var(--primary-pink-hover);
 }
 
 .btn-success {
-  background-color: #28a745;
-  color: white;
+  background-color: var(--success);
+  color: var(--white);
 }
 
 .btn-success:hover:not(:disabled) {
-  background-color: #1e7e34;
+  background-color: var(--success-hover);
 }
 
 .btn-warning {
-  background-color: #ffc107;
-  color: #212529;
+  background-color: var(--warning);
+  color: var(--white);
 }
 
 .btn-warning:hover:not(:disabled) {
-  background-color: #d39e00;
+  background-color: var(--warning-hover);
 }
 
 .btn-danger {
-  background-color: #dc3545;
-  color: white;
+  background-color: var(--error);
+  color: var(--white);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #bd2130;
+  background-color: var(--error-hover);
 }
 
 .btn-small {
@@ -224,14 +250,14 @@ body {
   cursor: pointer;
   font-weight: 500;
   padding: 8px 0;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--lavender-border);
 }
 
 .log-content {
   max-height: 120px;
   overflow-y: auto;
   padding: 8px;
-  background-color: #f8f9fa;
+  background-color: var(--lavender-light);
   border-radius: 4px;
   margin: 8px 0;
   font-family: 'Monaco', 'Menlo', monospace;
@@ -240,8 +266,8 @@ body {
 
 .log-entry {
   padding: 2px 0;
-  color: #555;
-  border-bottom: 1px solid #e9ecef;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--lavender-border);
 }
 
 .log-entry:last-child {
@@ -249,26 +275,26 @@ body {
 }
 
 .log-entry.error {
-  color: #dc3545;
+  color: var(--error);
 }
 
 .log-entry.success {
-  color: #28a745;
+  color: var(--success);
 }
 
 .log-entry.warning {
-  color: #ffc107;
+  color: var(--warning);
 }
 
 /* Footer */
 .footer {
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--lavender-border);
   padding-top: 12px;
 }
 
 .footer-text {
   font-size: 11px;
-  color: #666;
+  color: var(--text-secondary);
   text-align: center;
   line-height: 1.3;
 }
