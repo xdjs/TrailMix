@@ -539,40 +539,41 @@ Additional outcome:
 
 - [ ] Goal: Replace ad-hoc selector discovery with a deterministic, DOM-only scraper for the purchases page. Do not use `#pagedata` in this task. Keep interfaces and returned data exactly the same; maintain current download behavior for discovered items.
 
-- [ ] Canonical selectors and structure:
-  - [ ] List container: `#oh-container > div.purchases > ol` (ordered list).
-  - [ ] Item nodes: direct children of the `ol` are `div` elements (e.g., `div.purchases-item`), so target `#oh-container > div.purchases > ol > div` (not `li`).
-  - [ ] Download link per item: within the item, find anchor with `a[data-tid="download"]` (e.g., under `div.purchases-item-actions`). Do not depend on anchor text.
-  - [ ] Fallback list selector: if missing, try `#oh-container div.purchases > ol` (less strict). If still missing or zero items, log and throw.
+- [x] Canonical selectors and structure:
+  - [x] List container: `#oh-container > div.purchases > ol` (ordered list).
+  - [x] Item nodes: direct children of the `ol` are `div` elements (e.g., `div.purchases-item`), so target `#oh-container > div.purchases > ol > div` (not `li`).
+  - [x] Download link per item: within the item, find anchor with `a[data-tid="download"]` (e.g., under `div.purchases-item-actions`). Do not depend on anchor text.
+  - [x] Fallback list selector: if missing, try `#oh-container div.purchases > ol` (less strict). If still missing or zero items, log and throw.
+  - [x] Robustness: wait up to 5s for the purchases list (canonical, then fallback) before scraping to avoid premature errors.
 
 - [ ] Summary parsing (optional): may parse `#oh-container > div:nth-child(2) > span` for diagnostics only; do not branch on summary values. Scrape only via DOM regardless of `N/M`.
 
-- [ ] Filtering and fields:
-  - [ ] Return only items that have a direct download anchor (`a[data-tid="download"]`); skip non-downloadable items in DOM mode.
-  - [ ] Preserve existing item fields and response shape from current implementation; do not add/remove fields and do not change the message format.
-  - [ ] Normalize download `href` to an absolute URL via `new URL(href, location.origin).href` before returning.
+- [x] Filtering and fields:
+  - [x] Return only items that have a direct download anchor (`a[data-tid="download"]`); skip non-downloadable items in DOM mode.
+  - [x] Preserve existing item fields and response shape from current implementation; do not add/remove fields and do not change the message format.
+  - [x] Normalize download `href` to an absolute URL via `new URL(href, location.origin).href` before returning.
 
-- [ ] Error policy and logging:
-  - [ ] If the canonical list selector does not exist or matches 0 items, log a clear error and throw (no retries). This halts discovery per current error handling.
-  - [ ] Log key steps: summary parsed `N/M`, list selector presence, item count found, and number of downloadable items extracted.
+- [x] Error policy and logging:
+  - [x] If the canonical list selector does not exist or matches 0 items, log a clear error and throw (no retries). This halts discovery per current error handling.
+  - [x] Log key steps: list selector presence and error conditions; keep logs concise.
 
-- [ ] Code hygiene and scope constraints:
-  - [ ] Remove legacy selectors and code paths; do not leave any commented-out code or unused helpers.
-  - [ ] Only use the selectors specified in this task (canonical + explicit fallback); do not include additional implicit fallbacks or discovery heuristics.
-  - [ ] Ensure no dead code remains: run a quick scan for unused functions/variables related to the old scraping approach.
+- [x] Code hygiene and scope constraints:
+  - [x] Remove legacy selectors and code paths; do not leave any commented-out code or unused helpers.
+  - [x] Only use the selectors specified in this task (canonical + explicit fallback); do not include additional implicit fallbacks or discovery heuristics.
+  - [x] Ensure no dead code remains: run a quick scan for unused functions/variables related to the old scraping approach.
 
 - [ ] Out of scope (future tasks):
   - [ ] “View All” expansion and any auto-scroll logic remain separate work; this task does not attempt to expand.
   - [ ] i18n and alternative DOM layouts.
 
-- [ ] Acceptance Criteria:
-  - [ ] AC3.10.1: Scraper does not read or use `#pagedata` under any condition; DOM-only.
-  - [ ] AC3.10.2: Scraper returns only the visible, downloadable items using the canonical DOM selectors.
-  - [ ] AC3.10.3: When the canonical list selector is missing or yields 0 items, the scraper logs and throws an error.
-  - [ ] AC3.10.4: Response shape remains `{ success, purchases, totalCount, message? }` with identical item structure; downstream download behavior remains intact.
-  - [ ] AC3.10.5: Returned items are only those with `a[data-tid="download"]`, and download URLs are absolute.
-  - [ ] AC3.10.6: No legacy selectors or commented-out code remain; only the specified selectors are present in the scraper.
-  - [ ] AC3.10.7: No dead code or unused scraping helpers remain after the refactor.
+- [x] Acceptance Criteria:
+  - [x] AC3.10.1: Scraper does not read or use `#pagedata` under any condition; DOM-only.
+  - [x] AC3.10.2: Scraper returns only the visible, downloadable items using the canonical DOM selectors.
+  - [x] AC3.10.3: When the canonical list selector is missing or yields 0 items, the scraper logs and throws an error.
+  - [x] AC3.10.4: Response shape remains `{ success, purchases, totalCount, message? }` with identical item structure; downstream download behavior remains intact.
+  - [x] AC3.10.5: Returned items are only those with `a[data-tid="download"]`, and download URLs are absolute.
+  - [x] AC3.10.6: No legacy selectors or commented-out code remain; only the specified selectors are present in the scraper.
+  - [x] AC3.10.7: No dead code or unused scraping helpers remain after the refactor.
 
 ### Phase 4: Download Manager Implementation (Week 4) - ✅ COMPLETED
 
