@@ -455,182 +455,75 @@ try {
     window.__handleNavigateToPurchases = handleNavigateToPurchases;
   }
 } catch (_) {}
-// Scrape purchases page
+// Scrape purchases page (Refactored: DOM-only with known selectors)
 async function handleScrapePurchases(sendResponse) {
   try {
-    console.log('Scraping purchases page...');
+    console.log('Scraping purchases page (DOM-only refactor)...');
 
-    // Check if we're on a purchases page
+    // Must be on purchases page
     const isPurchasesPage = window.location.pathname.includes('/purchases');
-    const isCollectionPage = window.location.hostname === 'bandcamp.com' &&
-                            (window.location.pathname.match(/^\/[^\/]+\/?$/) ||
-                             window.location.pathname.includes('/collection'));
-
-    if (!isPurchasesPage && !isCollectionPage) {
-      sendResponse({ error: 'Not on purchases or collection page' });
+    if (!isPurchasesPage) {
+      sendResponse({ error: 'Not on purchases page' });
       return;
     }
 
-    // Try to extract data from pagedata blob first (purchases page)
-    if (isPurchasesPage) {
-      try {
-        // Ensure pagedata is available (wait up to 10s)
-        await DOMUtils.waitForElement('#pagedata', 10000);
-      } catch (_) {
-        console.log('Pagedata not found within timeout, falling back to DOM scraping');
-      }
-
-      const pageDataElement = document.getElementById('pagedata');
-      if (pageDataElement) {
-        try {
-          const raw = pageDataElement.getAttribute('data-blob');
-          const pageData = JSON.parse(raw);
-          if (pageData && pageData.orderhistory && Array.isArray(pageData.orderhistory.items)) {
-            const allItems = pageData.orderhistory.items;
-            const purchases = [];
-
-            const decodeHtml = (str) => {
-              if (!str) return str;
-              const el = document.createElement('textarea');
-              el.innerHTML = str;
-              return el.value;
-            };
-            const toAbsolute = (href) => {
-              try { return new URL(href, window.location.origin).href; } catch (_) { return href; }
-            };
-
-            for (const item of allItems) {
-              // Only process items with a direct download URL (digital purchases)
-              if (!item.download_url) continue;
-
-              const decoded = decodeHtml(item.download_url);
-              const absoluteUrl = toAbsolute(decoded);
-
-              purchases.push({
-                title: item.item_title || 'Unknown Title',
-                artist: item.artist_name || item.seller_name || 'Unknown Artist',
-                url: item.item_url || '',
-                artworkUrl: item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_2.jpg` : '',
-                purchaseDate: item.payment_date || '',
-                itemType: item.download_type === 't' ? 'track' : 'album',
-                downloadUrl: absoluteUrl
-              });
-            }
-
-            console.log(`Successfully scraped ${purchases.length} downloadable purchases from pagedata (items=${allItems.length})`);
-
-            sendResponse({
-              success: true,
-              purchases,
-              totalCount: purchases.length,
-              totals: { items: allItems.length, downloadable: purchases.length }
-            });
-            return;
-          }
-        } catch (err) {
-          console.error('Error parsing pagedata:', err);
-          // Fall through to DOM scraping
-        }
-      }
-    }
-
-    // Wait for collection items to load
+    // DOM mode: wait briefly for purchases list, then scrape using canonical selectors
     try {
-      await DOMUtils.waitForElement('.collection-grid, .collection-items, .collection-item-container, ol.collection-grid', 10000);
-    } catch (err) {
-      console.log('No collection grid found, checking for other selectors...');
-    }
-
-    // Find all purchase items - try multiple selectors for the collection page
-    const purchaseSelectors = [
-      'ol.collection-grid li.collection-item-container',  // Main collection grid items
-      'li.collection-item-container',
-      '.collection-grid .collection-item-container',
-      '.collection-items .collection-item-container',
-      '.collection-item',
-      'li[data-itemid]',  // Items with data attributes
-      '.fan-collection li'
-    ];
-
-    let purchaseElements = [];
-    for (const selector of purchaseSelectors) {
-      purchaseElements = document.querySelectorAll(selector);
-      if (purchaseElements.length > 0) {
-        console.log(`Found ${purchaseElements.length} items using selector: ${selector}`);
-        break;
+      console.log('[TrailMix] Waiting for purchases list (canonical selector)…');
+      await DOMUtils.waitForElement('#oh-container > div.purchases > ol', 5000);
+    } catch (_) {
+      try {
+        console.log('[TrailMix] Canonical selector not ready; trying fallback selector…');
+        await DOMUtils.waitForElement('#oh-container div.purchases > ol', 5000);
+      } catch (_) {
+        // proceed to query below; will error if not found
       }
     }
 
-    if (purchaseElements.length === 0) {
-      sendResponse({
-        success: true,
-        purchases: [],
-        message: 'No purchases found on page'
-      });
+    const listEl = document.querySelector('#oh-container > div.purchases > ol') ||
+                   document.querySelector('#oh-container div.purchases > ol');
+    if (!listEl) {
+      console.error('Purchases list not found via canonical selectors');
+      sendResponse({ error: 'Purchases list not found' });
       return;
     }
+
+    const itemNodes = Array.from(listEl.children).filter(n => n && n.tagName === 'DIV');
+    if (!itemNodes || itemNodes.length === 0) {
+      console.error('Purchases items not found (no direct div children)');
+      sendResponse({ error: 'No purchases found in list' });
+      return;
+    }
+
+    const toAbsolute = (href) => {
+      try { return new URL(href, window.location.origin).href; } catch (_) { return href; }
+    };
 
     const purchases = [];
-
-    for (const element of purchaseElements) {
+    for (const el of itemNodes) {
       try {
-        // Extract album/track title
-        const titleElement = element.querySelector('.collection-item-title, .item-title, a.item-link');
-        const title = DOMUtils.getTextContent(titleElement);
-
-        // Extract artist name
-        const artistElement = element.querySelector('.collection-item-artist, .item-artist, .by-artist a');
-        const artist = DOMUtils.getTextContent(artistElement).replace(/^by\s+/, '');
-
-        // Extract URL
-        const linkElement = element.querySelector('a.item-link, a.collection-item-link, a[href*="/album/"], a[href*="/track/"]');
-        const url = linkElement ? linkElement.href : '';
-
-        // Extract artwork URL
-        const artworkElement = element.querySelector('img.collection-item-art, img.item-art, img[src*=".jpg"], img[src*=".png"]');
-        const artworkUrl = artworkElement ? artworkElement.src : '';
-
-        // Extract purchase date if available
-        const dateElement = element.querySelector('.collection-item-date, .purchase-date');
-        const purchaseDate = DOMUtils.getTextContent(dateElement);
-
-        // Extract item type (album or track)
-        const itemType = url.includes('/track/') ? 'track' : 'album';
-
-        // Extract download link if available (only on purchases page)
-        let downloadUrl = null;
-        if (isPurchasesPage) {
-          // Look for download links within the item container
-          const downloadLink = element.querySelector('a[href*="/download/album"], a[href*="/download/track"], a.download-link, .download-col a');
-          if (downloadLink) {
-            downloadUrl = downloadLink.href;
-            console.log(`Found download link for ${title}: ${downloadUrl}`);
-          }
-        }
-
-        if (title && url) {
-          purchases.push({
-            title,
-            artist: artist || 'Unknown Artist',
-            url,
-            artworkUrl,
-            purchaseDate: purchaseDate || '',
-            itemType,
-            downloadUrl  // Include download URL if found
-          });
-        }
-      } catch (err) {
-        console.error('Error parsing purchase item:', err);
-      }
+        const a = el.querySelector('a[data-tid="download"]');
+        if (!a || !a.getAttribute('href')) continue; // downloadable-only
+        const downloadUrl = toAbsolute(a.getAttribute('href'));
+        purchases.push({
+          title: '',
+          artist: '',
+          url: '',
+          artworkUrl: '',
+          purchaseDate: '',
+          itemType: '',
+          downloadUrl
+        });
+      } catch (_) {}
     }
 
-    console.log(`Successfully scraped ${purchases.length} purchases`);
+    if (purchases.length === 0) {
+      console.error('No downloadable items found in DOM mode');
+      sendResponse({ error: 'No downloadable purchases found' });
+      return;
+    }
 
-    sendResponse({
-      success: true,
-      purchases,
-      totalCount: purchases.length
-    });
+    sendResponse({ success: true, purchases, totalCount: purchases.length });
 
   } catch (error) {
     console.error('Error scraping purchases:', error);
