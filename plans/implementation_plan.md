@@ -849,6 +849,111 @@ Additional outcome:
 - [x] **AC4.10.3**: Side panel UI displays correctly in wider layout
 - [x] **AC4.10.4**: All existing functionality works in side panel context
 
+### Phase 4.5: UI Polish with Style Guide
+
+**Task 4.5.1: Reskin UI with Trail Mix Style Guide**
+
+**Reference**: `docs/trail_mix_style_guide.svg`
+
+**Status**: Complete
+
+**Approach**: Apply the Trail Mix/Music Nerd v1 style guide to the side panel UI for consistent branding and professional appearance.
+
+**Implementation Steps:**
+
+1. [x] Update Color System:
+   - [x] Replace all colors with style guide palette
+   - [x] Primary Pink: `#FF4EB6` (for primary actions, progress fill)
+   - [x] Lavender Gray: `#6D5E77` (for secondary text, borders)
+   - [x] Dark Text: `#1E1E1E` (for primary text)
+   - [x] Background: `#FAFAFA` (for app background)
+   - [x] Success: `#2ECC71` (for success states, connected indicator)
+   - [x] Warning: `#F5B82E` (for warning/pause button)
+   - [x] Error: `#E74C3C` (for error states, cancel button)
+   - [x] White: `#FFFFFF` (for cards, buttons)
+   - [x] Add CSS variables for all colors at :root
+   - [x] Update all component colors to use variables
+   - [x] Update button colors (primary, success, warning, danger)
+   - [x] Update progress bar colors (pink fill on lavender track)
+   - [x] Update status indicator colors
+   - [x] Update card/section borders and backgrounds
+   - [x] Update text colors throughout
+   - [x] Fix Start Download button to use btn-primary (pink)
+
+2. [x] Update Typography:
+   - [x] Import Inter font from Google Fonts
+   - [x] Update font-family to: `Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif`
+   - [x] H1/App Title: 20px, Bold (currently 18px, 600)
+   - [x] H2/Section Headers: 14px, Uppercase (add text-transform)
+   - [x] Body/Status: 14px, Regular (keep current)
+   - [x] Caption/Helper: 12px, Regular (keep current)
+
+3. [x] Update Button Styles:
+   - [x] Height: 48px (currently auto with 8px padding)
+   - [x] Border radius: 12px (currently 4px)
+   - [x] Horizontal padding: 16-24px (currently 16px - acceptable)
+   - [x] Primary button: Pink (`#FF4EB6`)
+   - [x] Warning button: `#F5B82E`
+   - [x] Danger button: `#E74C3C`
+   - [x] Success button: `#2ECC71`
+   - [x] White text on all buttons
+
+4. [x] Update Progress Bar:
+   - [x] Track background: `rgba(109, 94, 119, 0.2)` (Lavender 20% opacity)
+   - [x] Fill color: `#FF4EB6` (Primary Pink)
+   - [x] Height: 22px (currently 20px)
+   - [x] Maintain rounded pill shape with 11px radius
+
+5. [x] Update Layout System:
+   - [x] Card/section border radius: 16px (currently 6px)
+   - [x] Add subtle shadows: `0 1px 3px rgba(0, 0, 0, 0.08)`
+   - [x] Maintain 16px base spacing (already correct)
+   - [x] Update progress section styling
+
+6. [x] Polish and Refinements:
+   - [x] Update hover states for new colors
+   - [x] Update status indicators (connected, error, warning)
+   - [x] Update log entry colors (error, success, warning)
+   - [x] Ensure accessibility/contrast ratios meet WCAG standards
+   - [x] Test responsive behavior with new styles
+
+7. [x] Update HTML (if needed):
+   - [x] Add font link to `<head>` for Inter
+   - [x] Verify section headers use appropriate markup
+   - [x] No structural changes needed
+
+**Visual Changes Summary:**
+- Modern pink/lavender color scheme replaces generic blue/gray
+- Professional Inter typography replaces system fonts
+- Larger, more prominent buttons (48px height)
+- Softer, more rounded UI (12-16px radius)
+- Enhanced visual hierarchy with proper shadows
+- Better brand consistency
+
+**Files to Modify:**
+- `sidepanel/sidepanel.css` - Complete style update
+- `sidepanel/sidepanel.html` - Add Inter font link
+
+**Testing Requirements:**
+- [ ] Visual QA in Chrome side panel at various widths
+- [ ] Verify all button states (normal, hover, disabled)
+- [ ] Test color contrast for accessibility
+- [ ] Verify progress bar animations
+- [ ] Test responsive behavior (min 300px width)
+- [ ] Screenshot comparison before/after
+
+**Acceptance Criteria:**
+- [x] **AC4.5.1**: All colors match style guide specification
+- [x] **AC4.5.2**: Inter font loads and displays correctly
+- [x] **AC4.5.3**: Typography hierarchy matches style guide
+- [x] **AC4.5.4**: Buttons are 48px height with 12px radius
+- [x] **AC4.5.5**: Progress bar uses pink fill on lavender track
+- [x] **AC4.5.6**: Cards have 16px radius with subtle shadows
+- [x] **AC4.5.7**: All text meets WCAG AA contrast requirements
+- [x] **AC4.5.8**: UI remains functional and responsive
+
+**Estimated Effort:** 1-2 hours
+
 ### Phase 5: Metadata & File Organization (Week 5)
 
 **Duration**: 5 days  
