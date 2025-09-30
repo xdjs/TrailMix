@@ -455,89 +455,16 @@ try {
     window.__handleNavigateToPurchases = handleNavigateToPurchases;
   }
 } catch (_) {}
-// Scrape purchases page (Refactored: DOM-first with known selectors; pagedata only when N == M)
+// Scrape purchases page (Refactored: DOM-only with known selectors)
 async function handleScrapePurchases(sendResponse) {
   try {
-    console.log('Scraping purchases page (refactor)...');
+    console.log('Scraping purchases page (DOM-only refactor)...');
 
     // Must be on purchases page
     const isPurchasesPage = window.location.pathname.includes('/purchases');
     if (!isPurchasesPage) {
       sendResponse({ error: 'Not on purchases page' });
       return;
-    }
-
-    // Parse summary: showing N of M purchases
-    const summaryEl = document.querySelector('#oh-container > div:nth-child(2) > span');
-    let showing = null;
-    let total = null;
-    if (summaryEl) {
-      try {
-        const text = String(summaryEl.textContent || '');
-        const m = text.match(/showing\s+(\d{1,6})\s+of\s+(\d{1,6})/i);
-        if (m) {
-          showing = parseInt(m[1], 10);
-          total = parseInt(m[2], 10);
-        } else {
-          // Support page-items-number span for N
-          const nEl = summaryEl.querySelector('span.page-items-number');
-          if (nEl) {
-            showing = parseInt(String(nEl.textContent || '0').replace(/[^\d]/g, ''), 10) || null;
-          }
-          const allNums = Array.from(text.matchAll(/\d{1,6}/g)).map(x => parseInt(x[0], 10));
-          if (allNums.length >= 2) {
-            total = Math.max(...allNums);
-          }
-        }
-      } catch (_) {}
-    }
-
-    const allItemsVisible = (typeof showing === 'number' && typeof total === 'number' && showing === total);
-
-    // If all items are visible, use pagedata exclusively
-    if (allItemsVisible) {
-      try {
-        const pageDataElement = document.getElementById('pagedata');
-        if (!pageDataElement) throw new Error('pagedata element not found');
-        const raw = pageDataElement.getAttribute('data-blob');
-        const pageData = JSON.parse(raw);
-        if (!pageData || !pageData.orderhistory || !Array.isArray(pageData.orderhistory.items)) {
-          throw new Error('invalid pagedata structure');
-        }
-
-        const decodeHtml = (str) => {
-          if (!str) return str;
-          const el = document.createElement('textarea');
-          el.innerHTML = str;
-          return el.value;
-        };
-        const toAbsolute = (href) => {
-          try { return new URL(href, window.location.origin).href; } catch (_) { return href; }
-        };
-
-        const purchases = [];
-        for (const item of pageData.orderhistory.items) {
-          if (!item || !item.download_url) continue; // downloadable only
-          const decoded = decodeHtml(item.download_url);
-          const absoluteUrl = toAbsolute(decoded);
-          purchases.push({
-            title: item.item_title || 'Unknown Title',
-            artist: item.artist_name || item.seller_name || 'Unknown Artist',
-            url: item.item_url || '',
-            artworkUrl: item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_2.jpg` : '',
-            purchaseDate: item.payment_date || '',
-            itemType: item.download_type === 't' ? 'track' : 'album',
-            downloadUrl: absoluteUrl
-          });
-        }
-
-        sendResponse({ success: true, purchases, totalCount: purchases.length });
-        return;
-      } catch (err) {
-        console.error('Error using pagedata when N==M:', err);
-        sendResponse({ error: 'Failed to read pagedata for full purchases list' });
-        return;
-      }
     }
 
     // DOM mode: scrape visible, downloadable-only items using canonical selectors

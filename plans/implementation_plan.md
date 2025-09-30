@@ -535,9 +535,9 @@ Additional outcome:
 - [ ] **AC3.7.5**: Works with different Bandcamp page layouts
 - [ ] **AC3.7.6**: Scraping completes within reasonable time limits
 
-#### Task 3.10: Refactor Purchases Scraping (DOM-first, Known Selectors)
+#### Task 3.10: Refactor Purchases Scraping (DOM-only, Known Selectors)
 
-- [ ] Goal: Replace ad-hoc selector discovery with a deterministic, DOM-first scraper for the purchases page; use `#pagedata` exclusively only when the page shows all items (`N == M`). Keep interfaces and returned data exactly the same; maintain current download behavior for discovered items.
+- [ ] Goal: Replace ad-hoc selector discovery with a deterministic, DOM-only scraper for the purchases page. Do not use `#pagedata` in this task. Keep interfaces and returned data exactly the same; maintain current download behavior for discovered items.
 
 - [ ] Canonical selectors and structure:
   - [ ] List container: `#oh-container > div.purchases > ol` (ordered list).
@@ -545,10 +545,7 @@ Additional outcome:
   - [ ] Download link per item: within the item, find anchor with `a[data-tid="download"]` (e.g., under `div.purchases-item-actions`). Do not depend on anchor text.
   - [ ] Fallback list selector: if missing, try `#oh-container div.purchases > ol` (less strict). If still missing or zero items, log and throw.
 
-- [ ] Summary parsing and `#pagedata` usage:
-  - [ ] Summary selector: `#oh-container > div:nth-child(2) > span`, with `span.page-items-number` providing N; parse `showing N of M` to obtain both.
-  - [ ] If `N == M`: use `#pagedata` exclusively as the authoritative source (unchanged behavior), and prefer pagedata values on conflicts.
-  - [ ] If `N < M`: do not use `#pagedata`; scrape only what is visible via DOM and return the downloadable subset.
+- [ ] Summary parsing (optional): may parse `#oh-container > div:nth-child(2) > span` for diagnostics only; do not branch on summary values. Scrape only via DOM regardless of `N/M`.
 
 - [ ] Filtering and fields:
   - [ ] Return only items that have a direct download anchor (`a[data-tid="download"]`); skip non-downloadable items in DOM mode.
@@ -569,11 +566,11 @@ Additional outcome:
   - [ ] i18n and alternative DOM layouts.
 
 - [ ] Acceptance Criteria:
-  - [ ] AC3.10.1: On purchases pages showing all items (`N == M`), scraper uses `#pagedata` exclusively and returns the same fields as before.
-  - [ ] AC3.10.2: On purchases pages with partial visibility (`N < M`), scraper returns only the visible, downloadable items using the canonical DOM selectors.
+  - [ ] AC3.10.1: Scraper does not read or use `#pagedata` under any condition; DOM-only.
+  - [ ] AC3.10.2: Scraper returns only the visible, downloadable items using the canonical DOM selectors.
   - [ ] AC3.10.3: When the canonical list selector is missing or yields 0 items, the scraper logs and throws an error.
   - [ ] AC3.10.4: Response shape remains `{ success, purchases, totalCount, message? }` with identical item structure; downstream download behavior remains intact.
-  - [ ] AC3.10.5: In DOM mode, returned items are only those with `a[data-tid="download"]`, and download URLs are absolute.
+  - [ ] AC3.10.5: Returned items are only those with `a[data-tid="download"]`, and download URLs are absolute.
   - [ ] AC3.10.6: No legacy selectors or commented-out code remain; only the specified selectors are present in the scraper.
   - [ ] AC3.10.7: No dead code or unused scraping helpers remain after the refactor.
 
