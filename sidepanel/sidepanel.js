@@ -90,7 +90,7 @@ async function loadInitialState() {
           const percentage = Math.round((state.completed / state.total) * 100);
           elements.progressFill.style.width = `${percentage}%`;
           elements.progressText.textContent = `${percentage}%`;
-          elements.progressStats.textContent = `${state.completed} of ${state.total} albums`;
+          elements.progressStats.textContent = `${percentage}% (${state.completed} of ${state.total} albums)`;
         }
 
         // Set correct button state
@@ -206,7 +206,7 @@ async function handleStartDownload() {
       elements.pauseBtn.style.display = 'inline-block';
       elements.stopBtn.style.display = 'inline-block';
 
-      elements.progressStats.textContent = `0 of ${response.totalPurchases || 0} albums`;
+      elements.progressStats.textContent = `0% (0 of ${response.totalPurchases || 0} albums)`;
       addLogEntry('Download started', 'success');
     } else if (response && response.status === 'failed') {
       addLogEntry('Failed to start download: ' + (response.error || 'Unknown error'), 'error');
@@ -313,11 +313,12 @@ function updateProgress(stats) {
     const percentage = Math.round((stats.completed / stats.total) * 100);
     elements.progressFill.style.width = `${percentage}%`;
     elements.progressText.textContent = `${percentage}%`;
-    elements.progressStats.textContent = `${stats.completed} of ${stats.total} albums`;
 
     // Show active downloads count
     if (stats.active !== undefined && stats.active > 0) {
-      elements.progressStats.textContent += ` (${stats.active} active)`;
+      elements.progressStats.textContent = `${percentage}% (${stats.completed} of ${stats.total} albums) (${stats.active} active)`;
+    } else {
+      elements.progressStats.textContent = `${percentage}% (${stats.completed} of ${stats.total} albums)`;
     }
 
     if (stats.currentAlbum) {
