@@ -90,7 +90,7 @@ async function loadInitialState() {
           const percentage = Math.round((state.completed / state.total) * 100);
           elements.progressFill.style.width = `${percentage}%`;
           elements.progressText.textContent = `${percentage}%`;
-          elements.progressStats.textContent = `${percentage}% (${state.completed} of ${state.total} albums)`;
+          elements.progressStats.textContent = formatProgressStats(percentage, state.completed, state.total);
         }
 
         // Set correct button state
@@ -162,6 +162,14 @@ function updateStartButtonVisibility(isAuthenticated, isDownloadActive) {
   }
 }
 
+function formatProgressStats(percentage, completed, total, active) {
+  let stats = `${percentage}% (${completed} of ${total} albums)`;
+  if (active !== undefined && active > 0) {
+    stats += ` (${active} active)`;
+  }
+  return stats;
+}
+
 // Event handlers
 async function handleStartDownload() {
   try {
@@ -214,7 +222,7 @@ async function handleStartDownload() {
       elements.pauseBtn.style.display = 'inline-block';
       elements.stopBtn.style.display = 'inline-block';
 
-      elements.progressStats.textContent = `0% (0 of ${response.totalPurchases || 0} albums)`;
+      elements.progressStats.textContent = formatProgressStats(0, 0, response.totalPurchases || 0);
       addLogEntry('Download started', 'success');
     } else if (response && response.status === 'failed') {
       addLogEntry('Failed to start download: ' + (response.error || 'Unknown error'), 'error');
@@ -322,12 +330,8 @@ function updateProgress(stats) {
     elements.progressFill.style.width = `${percentage}%`;
     elements.progressText.textContent = `${percentage}%`;
 
-    // Show active downloads count
-    if (stats.active !== undefined && stats.active > 0) {
-      elements.progressStats.textContent = `${percentage}% (${stats.completed} of ${stats.total} albums) (${stats.active} active)`;
-    } else {
-      elements.progressStats.textContent = `${percentage}% (${stats.completed} of ${stats.total} albums)`;
-    }
+    // Update progress stats text
+    elements.progressStats.textContent = formatProgressStats(percentage, stats.completed, stats.total, stats.active);
 
     if (stats.currentAlbum) {
       elements.currentItem.querySelector('.current-album').textContent = stats.currentAlbum;
