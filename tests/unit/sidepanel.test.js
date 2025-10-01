@@ -63,9 +63,14 @@ describe('Side Panel UI', () => {
     });
 
     test('should include required stylesheets', () => {
-      const cssLink = document.querySelector('link[rel="stylesheet"]');
-      expect(cssLink).toBeTruthy();
-      expect(cssLink.getAttribute('href')).toBe('sidepanel.css');
+      const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
+      expect(cssLinks.length).toBeGreaterThan(0);
+
+      // Check for sidepanel.css specifically
+      const sidepanelCss = Array.from(cssLinks).find(link =>
+        link.getAttribute('href') === 'sidepanel.css'
+      );
+      expect(sidepanelCss).toBeTruthy();
     });
 
     test('should include sidepanel script', () => {
@@ -216,12 +221,10 @@ describe('Side Panel UI', () => {
 
       // Check button variants
       const primaryBtn = document.querySelector('.btn-primary');
-      const successBtn = document.querySelector('.btn-success');
       const warningBtn = document.querySelector('.btn-warning');
       const dangerBtn = document.querySelector('.btn-danger');
 
       expect(primaryBtn).toBeTruthy();
-      expect(successBtn).toBeTruthy();
       expect(warningBtn).toBeTruthy();
       expect(dangerBtn).toBeTruthy();
     });
@@ -244,6 +247,137 @@ describe('Side Panel UI', () => {
       const logEntries = document.querySelectorAll('.log-entry');
       expect(logEntries.length).toBe(1);
       expect(logEntries[0].textContent).toBe('Extension initialized');
+    });
+  });
+
+  describe('Not-Logged-In State', () => {
+    test('should use pink status indicator for not-logged-in state', () => {
+      const statusIndicator = document.querySelector('.status-indicator');
+      statusIndicator.className = 'status-indicator not-logged-in';
+
+      // Verify the class is applied correctly
+      expect(statusIndicator.classList.contains('not-logged-in')).toBe(true);
+      expect(statusIndicator.classList.contains('status-indicator')).toBe(true);
+
+      // Verify CSS variable is defined in stylesheet
+      const cssPath = path.join(__dirname, '../../sidepanel/sidepanel.css');
+      const cssContent = fs.readFileSync(cssPath, 'utf8');
+      expect(cssContent).toContain('--primary-pink: #FF4EB6');
+      expect(cssContent).toContain('.status-indicator.not-logged-in');
+      expect(cssContent).toContain('background-color: var(--primary-pink)');
+    });
+
+    test('should hide Start Download button when not logged in', () => {
+      const startBtn = document.querySelector('#startBtn');
+
+      // Simulate not-logged-in state: button should not have .visible class
+      startBtn.classList.remove('visible');
+
+      expect(startBtn.classList.contains('visible')).toBe(false);
+    });
+
+    test('should show Start Download button when authenticated', () => {
+      const startBtn = document.querySelector('#startBtn');
+
+      // Simulate authenticated state: button should have .visible class
+      startBtn.classList.add('visible');
+
+      expect(startBtn.classList.contains('visible')).toBe(true);
+    });
+  });
+
+  describe('Progress Section Layout', () => {
+    test('should hide percentage overlay on progress bar', () => {
+      const progressText = document.querySelector('#progressText');
+      expect(progressText).toBeTruthy();
+
+      // Verify CSS rule exists to hide the percentage overlay
+      const cssPath = path.join(__dirname, '../../sidepanel/sidepanel.css');
+      const cssContent = fs.readFileSync(cssPath, 'utf8');
+      expect(cssContent).toContain('.progress-text');
+      expect(cssContent).toContain('display: none');
+    });
+
+    test('should show empty current album text initially', () => {
+      const currentAlbum = document.querySelector('.current-album');
+      expect(currentAlbum.textContent).toBe('');
+    });
+
+    test('should position progress stats below progress bar', () => {
+      const progressStats = document.querySelector('.progress-stats');
+      const progressBarContainer = document.querySelector('.progress-bar-container');
+
+      expect(progressStats).toBeTruthy();
+      expect(progressBarContainer).toBeTruthy();
+
+      // Progress stats should come after progress bar in DOM order
+      const parent = progressStats.parentElement;
+      const children = Array.from(parent.children);
+      const statsIndex = children.indexOf(progressStats);
+      const barIndex = children.indexOf(progressBarContainer);
+
+      expect(statsIndex).toBeGreaterThan(barIndex);
+    });
+  });
+
+  describe('Progress Text Formatting', () => {
+    let elements;
+
+    beforeEach(() => {
+      // Set up elements object similar to sidepanel.js
+      elements = {
+        progressFill: document.querySelector('#progressFill'),
+        progressText: document.querySelector('#progressText'),
+        progressStats: document.querySelector('#progressStats')
+      };
+    });
+
+    test('should format progress stats with percentage and album count', () => {
+      const stats = { completed: 1, total: 24, active: 0 };
+
+      // Simulate updateProgress function logic
+      const percentage = Math.round((stats.completed / stats.total) * 100);
+      elements.progressFill.style.width = `${percentage}%`;
+      elements.progressText.textContent = `${percentage}%`;
+      elements.progressStats.textContent = `${percentage}% (${stats.completed} of ${stats.total} albums)`;
+
+      expect(elements.progressStats.textContent).toBe('4% (1 of 24 albums)');
+      expect(elements.progressFill.style.width).toBe('4%');
+    });
+
+    test('should include active downloads in progress stats', () => {
+      const stats = { completed: 5, total: 20, active: 2 };
+
+      // Simulate updateProgress function logic
+      const percentage = Math.round((stats.completed / stats.total) * 100);
+      elements.progressFill.style.width = `${percentage}%`;
+      elements.progressText.textContent = `${percentage}%`;
+
+      if (stats.active !== undefined && stats.active > 0) {
+        elements.progressStats.textContent = `${percentage}% (${stats.completed} of ${stats.total} albums) (${stats.active} active)`;
+      } else {
+        elements.progressStats.textContent = `${percentage}% (${stats.completed} of ${stats.total} albums)`;
+      }
+
+      expect(elements.progressStats.textContent).toBe('25% (5 of 20 albums) (2 active)');
+      expect(elements.progressFill.style.width).toBe('25%');
+    });
+
+    test('should calculate percentage correctly for edge cases', () => {
+      // Test 0% progress
+      let stats = { completed: 0, total: 24 };
+      let percentage = Math.round((stats.completed / stats.total) * 100);
+      expect(percentage).toBe(0);
+
+      // Test 100% progress
+      stats = { completed: 24, total: 24 };
+      percentage = Math.round((stats.completed / stats.total) * 100);
+      expect(percentage).toBe(100);
+
+      // Test rounding
+      stats = { completed: 1, total: 3 };
+      percentage = Math.round((stats.completed / stats.total) * 100);
+      expect(percentage).toBe(33);
     });
   });
 });

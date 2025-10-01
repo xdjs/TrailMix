@@ -81,16 +81,17 @@ async function loadInitialState() {
       if (state.isActive || state.isPaused || state.queueSize > 0) {
         // Show progress section since we have an active/paused queue
         elements.progressSection.style.display = 'block';
-        elements.startBtn.style.display = 'none';
+        elements.progressSection.classList.add('active');
         elements.pauseBtn.style.display = 'inline-block';
         elements.stopBtn.style.display = 'inline-block';
+        updateStartButtonVisibility(true, true); // authenticated=true, downloadActive=true
 
         // Update progress display
         if (state.total > 0) {
           const percentage = Math.round((state.completed / state.total) * 100);
           elements.progressFill.style.width = `${percentage}%`;
           elements.progressText.textContent = `${percentage}%`;
-          elements.progressStats.textContent = `${state.completed} of ${state.total} albums`;
+          elements.progressStats.textContent = formatProgressStats(percentage, state.completed, state.total);
         }
 
         // Set correct button state
@@ -127,6 +128,7 @@ async function checkAuthenticationStatus() {
     
     if (response.isAuthenticated) {
       updateAuthStatus('connected', 'Connected to Bandcamp');
+      updateStartButtonVisibility(true, false);
       elements.startBtn.disabled = false;
       elements.loginBtn.style.display = 'none';
       addLogEntry('Authentication verified');
@@ -136,8 +138,9 @@ async function checkAuthenticationStatus() {
         addLogEntry(`Found ${response.userInfo.collectionCount} items in collection`);
       }
     } else {
-      updateAuthStatus('error', 'Not logged in to Bandcamp');
+      updateAuthStatus('not-logged-in', 'Not logged in to Bandcamp');
       elements.loginBtn.style.display = 'inline-block';
+      updateStartButtonVisibility(false, false);
       elements.startBtn.disabled = true;
       addLogEntry('Authentication required - please log in to Bandcamp', 'warning');
     }
@@ -150,6 +153,22 @@ async function checkAuthenticationStatus() {
 function updateAuthStatus(status, message) {
   elements.statusText.textContent = message;
   elements.statusIndicator.className = `status-indicator ${status}`;
+}
+
+function updateStartButtonVisibility(isAuthenticated, isDownloadActive) {
+  if (isAuthenticated && !isDownloadActive) {
+    elements.startBtn.classList.add('visible');
+  } else {
+    elements.startBtn.classList.remove('visible');
+  }
+}
+
+function formatProgressStats(percentage, completed, total, active) {
+  let stats = `${percentage}% (${completed} of ${total} albums)`;
+  if (active !== undefined && active > 0) {
+    stats += ` (${active} active)`;
+  }
+  return stats;
 }
 
 // Event handlers
@@ -200,11 +219,12 @@ async function handleStartDownload() {
 
     if (response && response.status === 'started') {
       elements.progressSection.style.display = 'block';
-      elements.startBtn.style.display = 'none';
+      elements.progressSection.classList.add('active');
       elements.pauseBtn.style.display = 'inline-block';
       elements.stopBtn.style.display = 'inline-block';
+      updateStartButtonVisibility(true, true); // authenticated=true, downloadActive=true
 
-      elements.progressStats.textContent = `0 of ${response.totalPurchases || 0} albums`;
+      elements.progressStats.textContent = formatProgressStats(0, 0, response.totalPurchases || 0);
       addLogEntry('Download started', 'success');
     } else if (response && response.status === 'failed') {
       addLogEntry('Failed to start download: ' + (response.error || 'Unknown error'), 'error');
@@ -253,10 +273,11 @@ async function handleStopDownload() {
     
     if (response.status === 'stopped') {
       elements.progressSection.style.display = 'none';
-      elements.startBtn.style.display = 'inline-block';
+      elements.progressSection.classList.remove('active');
       elements.pauseBtn.style.display = 'none';
       elements.stopBtn.style.display = 'none';
-      
+      updateStartButtonVisibility(true, false); // authenticated=true, downloadActive=false
+
       addLogEntry('Download stopped', 'warning');
     }
   } catch (error) {
@@ -311,12 +332,9 @@ function updateProgress(stats) {
     const percentage = Math.round((stats.completed / stats.total) * 100);
     elements.progressFill.style.width = `${percentage}%`;
     elements.progressText.textContent = `${percentage}%`;
-    elements.progressStats.textContent = `${stats.completed} of ${stats.total} albums`;
 
-    // Show active downloads count
-    if (stats.active !== undefined && stats.active > 0) {
-      elements.progressStats.textContent += ` (${stats.active} active)`;
-    }
+    // Update progress stats text
+    elements.progressStats.textContent = formatProgressStats(percentage, stats.completed, stats.total, stats.active);
 
     if (stats.currentAlbum) {
       elements.currentItem.querySelector('.current-album').textContent = stats.currentAlbum;
