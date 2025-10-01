@@ -1,14 +1,15 @@
 # Trail Mix - Implementation Plan
 
-## 🎉 Project Status: Phase 4 Complete — Core Download Functionality Done!
+## 🎉 Project Status: Core Functionality Complete!
 
 **✅ PHASE 1 COMPLETED** - Chrome Extension Foundation
-**✅ PHASE 2 SIMPLIFIED** - Basic Authentication (Login button opens Bandcamp login)
-**✅ PHASE 3 COMPLETED** - Purchase Discovery & Parallel Download Start
-**✅ PHASE 4 COMPLETED** - Download Manager with Queue Management System
-**📊 Progress**: Full queue management with priority system, pause/resume, persistence, and retry logic
-**🧪 Testing**: Comprehensive unit tests (287 total, 243 passing); queue persistence verified across restarts
-**🚀 Status**: Complete download system with TrailMix subfolder, handling edge cases (stale tabs, cancellation)
+**✅ PHASE 2 COMPLETED** - Basic Authentication
+**✅ PHASE 3 COMPLETED** - Purchase Discovery & Download
+**✅ PHASE 4 COMPLETED** - Download Manager with Queue System
+**✅ PHASE 4.5 COMPLETED** - UI Polish with Trail Mix Style Guide
+**📊 Next**: Phase 5 (UI Enhancements) and Phase 6 (Testing & Polish)
+**🧪 Testing**: Comprehensive unit tests; queue persistence verified
+**🚀 Status**: Fully functional download system with modern UI
 
 ---
 
@@ -954,105 +955,13 @@ Additional outcome:
 
 **Estimated Effort:** 1-2 hours
 
-### Phase 5: Metadata & File Organization (Week 5)
+### Phase 5: User Interface Enhancements (Week 5)
 
-**Duration**: 5 days  
-**Dependencies**: Phase 4 complete (download manager working)  
-**Deliverables**: Complete metadata handling and file organization system
+**Duration**: 5 days
+**Dependencies**: Phase 4.5 complete (UI polish done)
+**Deliverables**: Enhanced user interface with advanced features and controls
 
-#### Task 5.1: Metadata Embedding Research & Setup (Day 1)
-- [ ] Research browser-compatible ID3 tagging libraries:
-  - [ ] Evaluate jsmediatags, node-id3, or similar libraries
-  - [ ] Test library compatibility with Chrome extensions
-  - [ ] Assess performance and file size impact
-- [ ] Create `lib/metadata-handler.js` foundation
-- [ ] Implement metadata extraction from Bandcamp's MP3s:
-  - [ ] Read existing ID3 tags from downloaded files
-  - [ ] Validate pre-existing metadata quality
-  - [ ] Identify missing metadata fields
-- [ ] Set up metadata processing pipeline:
-  - [ ] Create metadata validation functions
-  - [ ] Design metadata enhancement workflow
-  - [ ] Plan metadata embedding process
-
-#### Task 5.2: Metadata Embedding Implementation (Day 1-2)
-- [ ] Implement core metadata embedding:
-  - [ ] Artist name embedding
-  - [ ] Album title embedding
-  - [ ] Track number embedding
-  - [ ] Track title embedding
-  - [ ] Release date embedding
-- [ ] Add extended metadata support:
-  - [ ] Genre information (if available)
-  - [ ] Album artist vs track artist
-  - [ ] Disc number for multi-disc albums
-  - [ ] Comment field with download source info
-- [ ] Create metadata validation and correction:
-  - [ ] Fix encoding issues
-  - [ ] Standardize metadata format
-  - [ ] Handle missing or corrupted tags
-
-#### Task 5.3: Album Artwork Processing (Day 2-3)
-- [ ] Implement artwork download system:
-  - [ ] Download highest resolution artwork from Bandcamp
-  - [ ] Handle different artwork formats (JPEG, PNG)
-  - [ ] Manage artwork file sizes and quality
-- [ ] Create artwork embedding functionality:
-  - [ ] Embed artwork into MP3 ID3 tags
-  - [ ] Handle artwork size limits for ID3 tags
-  - [ ] Optimize artwork for embedding
-- [ ] Add artwork caching system:
-  - [ ] Cache downloaded artwork to avoid re-downloading
-  - [ ] Manage cache storage and cleanup
-  - [ ] Handle artwork updates and versions
-
-#### Task 5.4: File Processing Integration (Day 3-4)
-- [ ] Integrate metadata processing with download manager:
-  - [ ] Process files immediately after download
-  - [ ] Handle processing failures gracefully
-  - [ ] Maintain download progress accuracy
-- [ ] Create file validation system:
-  - [ ] Verify file integrity after processing
-  - [ ] Validate metadata embedding success
-  - [ ] Check final file organization
-- [ ] Add processing progress tracking:
-  - [ ] Track metadata embedding progress
-  - [ ] Report file organization progress
-  - [ ] Update UI with processing status
-
-#### Task 5.5: Metadata Testing (Day 5)
-- [ ] Test metadata embedding:
-  - [ ] Verify all metadata fields are embedded correctly
-  - [ ] Test with various MP3 file types
-  - [ ] Validate metadata player compatibility
-- [ ] Test artwork processing:
-  - [ ] Verify artwork embedding in various players
-  - [ ] Test different artwork sizes and formats
-  - [ ] Validate artwork caching functionality
-- [ ] Integration testing:
-  - [ ] Test full download-to-organization pipeline
-  - [ ] Verify processing doesn't break downloads
-  - [ ] Test with large batches of files
-
-**Unit Tests:**
-- [ ] Test ID3 tag writing and reading functions
-- [ ] Test artwork processing and embedding
-- [ ] Test metadata validation and correction
-
-**Acceptance Test:**
-- [ ] **AC5.5.1**: All metadata fields appear correctly in music players
-- [ ] **AC5.6.3**: Artwork displays properly in all tested players
-- [ ] **AC5.6.4**: Special characters in filenames are handled safely
-- [ ] **AC5.6.5**: Duplicate files are renamed appropriately
-- [ ] **AC5.6.6**: Processing completes without corrupting files
-
-### Phase 6: User Interface Development (Week 6)
-
-**Duration**: 5 days  
-**Dependencies**: Phase 5 complete (metadata & organization working)  
-**Deliverables**: Complete user interface with progress tracking and controls
-
-#### Task 6.1: Progress Dashboard Design & Implementation (Day 1-2)
+#### Task 5.1: Progress Dashboard Design & Implementation (Day 1-2)
 - [ ] Design progress dashboard layout:
   - [ ] Overall progress bar (X of Y albums completed)
   - [ ] Current item display (album/track being downloaded)
@@ -1069,7 +978,7 @@ Additional outcome:
   - [ ] Show download queue position
   - [ ] Add estimated time remaining
 
-#### Task 6.2: Control Interface Development (Day 2-3)
+#### Task 5.2: Control Interface Development (Day 2-3)
 - [ ] Create download control buttons:
   - [ ] Start download button
   - [ ] Pause/resume download button
@@ -1089,7 +998,7 @@ Additional outcome:
   - [ ] Load settings on extension start
   - [ ] Validate setting values
 
-#### Task 6.3: Status Reporting & Logging (Day 3)
+#### Task 5.3: Status Reporting & Logging (Day 3)
 - [ ] Implement download status indicators:
   - [ ] Authentication status display
   - [ ] Download queue status
@@ -1105,7 +1014,7 @@ Additional outcome:
   - [ ] Record processing decisions
   - [ ] Show log in expandable section
 
-#### Task 6.4: Completion & Notification System (Day 3-4)
+#### Task 5.4: Completion & Notification System (Day 3-4)
 - [ ] Implement completion notifications:
   - [ ] Browser notifications for download completion
   - [ ] Success/failure summary display
@@ -1121,7 +1030,7 @@ Additional outcome:
   - [ ] Export download log
   - [ ] Start new download session
 
-#### Task 6.5: UI Polish & Responsiveness (Day 4)
+#### Task 5.5: UI Polish & Responsiveness (Day 4)
 - [ ] Improve UI styling and layout:
   - [ ] Consistent visual design
   - [ ] Responsive layout for different popup sizes
@@ -1137,7 +1046,7 @@ Additional outcome:
   - [ ] Smooth animations
   - [ ] Minimal UI blocking during operations
 
-#### Task 6.6: UI Testing & User Experience (Day 5)
+#### Task 5.6: UI Testing & User Experience (Day 5)
 - [ ] Test UI with various scenarios:
   - [ ] Large download queues
   - [ ] Error conditions
@@ -1161,20 +1070,20 @@ Additional outcome:
 - [ ] Test accessibility features (ARIA labels, keyboard nav)
 
 **Acceptance Test:**
-- [ ] **AC6.6.1**: UI remains responsive during large downloads
-- [ ] **AC6.6.2**: Progress indicators accurately reflect current status
-- [ ] **AC6.6.3**: Error messages are clear and actionable
-- [ ] **AC6.6.4**: All controls work as expected by users
-- [ ] **AC6.6.5**: UI is accessible to users with disabilities
-- [ ] **AC6.6.6**: Complete workflow can be performed intuitively
+- [ ] **AC5.6.1**: UI remains responsive during large downloads
+- [ ] **AC5.6.2**: Progress indicators accurately reflect current status
+- [ ] **AC5.6.3**: Error messages are clear and actionable
+- [ ] **AC5.6.4**: All controls work as expected by users
+- [ ] **AC5.6.5**: UI is accessible to users with disabilities
+- [ ] **AC5.6.6**: Complete workflow can be performed intuitively
 
-### Phase 7: Testing & Polish (Week 7)
+### Phase 6: Testing & Polish (Week 7)
 
 **Duration**: 5 days  
-**Dependencies**: Phase 6 complete (UI fully implemented)  
+**Dependencies**: Phase 5 complete (UI fully implemented)  
 **Deliverables**: Production-ready extension with comprehensive testing
 
-#### Task 7.1: Comprehensive Functionality Testing (Day 1-2)
+#### Task 6.1: Comprehensive Functionality Testing (Day 1-2)
 - [ ] Test with various Bandcamp account types:
   - [ ] Accounts with 1-10 purchases
   - [ ] Accounts with 50+ purchases
@@ -1196,7 +1105,7 @@ Additional outcome:
   - [ ] Verify partial download cleanup
   - [ ] Test browser restart scenarios
 
-#### Task 7.2: Error Scenario & Edge Case Testing (Day 2-3)
+#### Task 6.2: Error Scenario & Edge Case Testing (Day 2-3)
 - [ ] Network interruption handling:
   - [ ] Test with slow/unstable internet
   - [ ] Simulate network disconnections
@@ -1218,7 +1127,7 @@ Additional outcome:
   - [ ] CPU usage during operations
   - [ ] Long-running session stability
 
-#### Task 7.3: User Experience Testing & Polish (Day 3-4)
+#### Task 6.3: User Experience Testing & Polish (Day 3-4)
 - [ ] UI/UX refinements:
   - [ ] Polish visual design elements
   - [ ] Improve layout consistency
@@ -1240,7 +1149,7 @@ Additional outcome:
   - [ ] Test with accessibility tools
   - [ ] Improve color contrast
 
-#### Task 7.4: Documentation & User Guide Creation (Day 4)
+#### Task 6.4: Documentation & User Guide Creation (Day 4)
 - [ ] Create user documentation:
   - [ ] Installation instructions
   - [ ] Getting started guide
@@ -1257,7 +1166,7 @@ Additional outcome:
   - [ ] Error resolution guidance
   - [ ] Feature explanation popups
 
-#### Task 7.5: Final Integration & Release Preparation (Day 5)
+#### Task 6.5: Final Integration & Release Preparation (Day 5)
 - [ ] Complete end-to-end testing:
   - [ ] Full workflow testing from login to completion
   - [ ] Test with real user scenarios
@@ -1286,12 +1195,12 @@ Additional outcome:
 - [ ] Test installation and uninstallation procedures
 
 **Acceptance Test:**
-- [ ] **AC7.5.1**: Complete workflow works end-to-end without issues
-- [ ] **AC7.5.2**: Extension installs and uninstalls cleanly
-- [ ] **AC7.5.3**: All features work as documented in user guide
-- [ ] **AC7.5.4**: Performance meets or exceeds requirements
-- [ ] **AC7.5.5**: Security review passes with no critical issues
-- [ ] **AC7.5.6**: Extension is ready for production use
+- [ ] **AC6.5.1**: Complete workflow works end-to-end without issues
+- [ ] **AC6.5.2**: Extension installs and uninstalls cleanly
+- [ ] **AC6.5.3**: All features work as documented in user guide
+- [ ] **AC6.5.4**: Performance meets or exceeds requirements
+- [ ] **AC6.5.5**: Security review passes with no critical issues
+- [ ] **AC6.5.6**: Extension is ready for production use
 
 ## Technical Implementation Details
 
