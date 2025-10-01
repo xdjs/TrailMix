@@ -701,26 +701,7 @@ Additional outcome:
   - [x] Preserve original filenames from Bandcamp
   - [x] Handle path length limits via Chrome API
 
-**Task 4.8: Album ZIP File Handling (Day 4)**
-- [ ] Research ZIP file handling options:
-  - [ ] Investigate if Chrome can auto-extract ZIPs
-  - [ ] Evaluate JSZip library for in-browser extraction
-  - [ ] Consider leaving as ZIP vs extracting
-  - [ ] Assess memory constraints for large albums
-- [ ] Design ZIP handling strategy:
-  - [ ] Determine if extraction is needed/wanted
-  - [ ] Plan extraction workflow if applicable
-  - [ ] Consider user preferences for ZIP vs extracted
-- [ ] Implement chosen approach:
-  - [ ] If keeping ZIP: organize ZIP files properly
-  - [ ] If extracting: implement extraction logic
-  - [ ] Handle extraction errors gracefully
-- [ ] Test ZIP handling:
-  - [ ] Test with various album sizes
-  - [ ] Test memory usage during extraction
-  - [ ] Verify file integrity after processing
-
-**Task 4.9: Integration & Testing (Day 5)**
+**Task 4.8: Integration & Testing (Day 5)**
 - [ ] Integrate all components:
   - [ ] Connect queue with DownloadJob class
   - [ ] Wire up retry logic with queue
@@ -752,7 +733,7 @@ Additional outcome:
   - [ ] Long-running download sessions
   - [ ] Memory usage monitoring
 
-**Task 4.10: Convert Popup to Side Panel UI** ✅ COMPLETED
+**Task 4.9: Convert Popup to Side Panel UI** ✅ COMPLETED
 
 **Status**: ✅ COMPLETED - Side panel conversion complete with all functionality working
 
@@ -841,14 +822,12 @@ Additional outcome:
 - [ ] **AC4.6.1**: Downloads can be paused and resumed
 - [x] **AC4.7.1**: Files organized in Downloads/TrailMix/Artist/Album structure
 - [x] **AC4.7.2**: Filenames sanitized for filesystem compatibility (handled by Chrome API)
-- [ ] **AC4.8.1**: ZIP files handled according to chosen strategy
-- [ ] **AC4.8.2**: Memory usage acceptable for ZIP processing
-- [ ] **AC4.9.1**: Large queues (50+ items) process reliably
-- [ ] **AC4.9.2**: Memory usage remains stable during long sessions
-- [x] **AC4.10.1**: Side panel opens when extension icon is clicked
-- [x] **AC4.10.2**: Side panel remains open during downloads
-- [x] **AC4.10.3**: Side panel UI displays correctly in wider layout
-- [x] **AC4.10.4**: All existing functionality works in side panel context
+- [ ] **AC4.8.1**: Large queues (50+ items) process reliably
+- [ ] **AC4.8.2**: Memory usage remains stable during long sessions
+- [x] **AC4.9.1**: Side panel opens when extension icon is clicked
+- [x] **AC4.9.2**: Side panel remains open during downloads
+- [x] **AC4.9.3**: Side panel UI displays correctly in wider layout
+- [x] **AC4.9.4**: All existing functionality works in side panel context
 
 ### Phase 4.5: UI Polish with Style Guide
 
