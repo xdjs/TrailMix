@@ -79,7 +79,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .status-indicator {
@@ -91,6 +91,10 @@ body {
 
 .status-indicator.connected {
   background-color: var(--success);
+}
+
+.status-indicator.not-logged-in {
+  background-color: var(--primary-pink);
 }
 
 .status-indicator.error {

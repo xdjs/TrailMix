@@ -127,6 +127,7 @@ async function checkAuthenticationStatus() {
     
     if (response.isAuthenticated) {
       updateAuthStatus('connected', 'Connected to Bandcamp');
+      elements.startBtn.style.display = 'inline-block';
       elements.startBtn.disabled = false;
       elements.loginBtn.style.display = 'none';
       addLogEntry('Authentication verified');
@@ -136,8 +137,9 @@ async function checkAuthenticationStatus() {
         addLogEntry(`Found ${response.userInfo.collectionCount} items in collection`);
       }
     } else {
-      updateAuthStatus('error', 'Not logged in to Bandcamp');
+      updateAuthStatus('not-logged-in', 'Not logged in to Bandcamp');
       elements.loginBtn.style.display = 'inline-block';
+      elements.startBtn.style.display = 'none';
       elements.startBtn.disabled = true;
       addLogEntry('Authentication required - please log in to Bandcamp', 'warning');
     }
