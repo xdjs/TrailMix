@@ -222,7 +222,7 @@ body {
 
 .btn-warning {
   background-color: var(--warning);
-  color: var(--dark-text);
+  color: var(--white);
 }
 
 .btn-warning:hover:not(:disabled) {
