@@ -84,6 +84,7 @@ async function loadInitialState() {
         elements.progressSection.classList.add('active');
         elements.pauseBtn.style.display = 'inline-block';
         elements.stopBtn.style.display = 'inline-block';
+        updateStartButtonVisibility(true, true); // authenticated=true, downloadActive=true
 
         // Update progress display
         if (state.total > 0) {
@@ -221,6 +222,7 @@ async function handleStartDownload() {
       elements.progressSection.classList.add('active');
       elements.pauseBtn.style.display = 'inline-block';
       elements.stopBtn.style.display = 'inline-block';
+      updateStartButtonVisibility(true, true); // authenticated=true, downloadActive=true
 
       elements.progressStats.textContent = formatProgressStats(0, 0, response.totalPurchases || 0);
       addLogEntry('Download started', 'success');
@@ -274,7 +276,8 @@ async function handleStopDownload() {
       elements.progressSection.classList.remove('active');
       elements.pauseBtn.style.display = 'none';
       elements.stopBtn.style.display = 'none';
-      
+      updateStartButtonVisibility(true, false); // authenticated=true, downloadActive=false
+
       addLogEntry('Download stopped', 'warning');
     }
   } catch (error) {
