@@ -174,9 +174,18 @@ body {
   gap: 8px;
 }
 
+/* Start Download button visibility control */
+#startBtn {
+  display: none; /* Hidden by default */
+}
+
+#startBtn.visible {
+  display: inline-block;
+}
+
 /* Hide Start Download button when progress section is active */
 .progress-section.active ~ .controls-section #startBtn {
-  display: none !important;
+  display: none;
 }
 
 /* Buttons */

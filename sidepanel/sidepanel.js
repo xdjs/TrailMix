@@ -127,7 +127,7 @@ async function checkAuthenticationStatus() {
     
     if (response.isAuthenticated) {
       updateAuthStatus('connected', 'Connected to Bandcamp');
-      elements.startBtn.style.display = 'inline-block';
+      updateStartButtonVisibility(true, false);
       elements.startBtn.disabled = false;
       elements.loginBtn.style.display = 'none';
       addLogEntry('Authentication verified');
@@ -139,7 +139,7 @@ async function checkAuthenticationStatus() {
     } else {
       updateAuthStatus('not-logged-in', 'Not logged in to Bandcamp');
       elements.loginBtn.style.display = 'inline-block';
-      elements.startBtn.style.display = 'none';
+      updateStartButtonVisibility(false, false);
       elements.startBtn.disabled = true;
       addLogEntry('Authentication required - please log in to Bandcamp', 'warning');
     }
@@ -152,6 +152,14 @@ async function checkAuthenticationStatus() {
 function updateAuthStatus(status, message) {
   elements.statusText.textContent = message;
   elements.statusIndicator.className = `status-indicator ${status}`;
+}
+
+function updateStartButtonVisibility(isAuthenticated, isDownloadActive) {
+  if (isAuthenticated && !isDownloadActive) {
+    elements.startBtn.classList.add('visible');
+  } else {
+    elements.startBtn.classList.remove('visible');
+  }
 }
 
 // Event handlers
