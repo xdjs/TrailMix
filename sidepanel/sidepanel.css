@@ -174,8 +174,8 @@ body {
   gap: 8px;
 }
 
-/* Hide Start Download button when progress section is visible */
-.progress-section:not([style*="display: none"]) ~ .controls-section #startBtn {
+/* Hide Start Download button when progress section is active */
+.progress-section.active ~ .controls-section #startBtn {
   display: none !important;
 }
 

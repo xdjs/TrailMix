@@ -81,7 +81,7 @@ async function loadInitialState() {
       if (state.isActive || state.isPaused || state.queueSize > 0) {
         // Show progress section since we have an active/paused queue
         elements.progressSection.style.display = 'block';
-        elements.startBtn.style.display = 'none';
+        elements.progressSection.classList.add('active');
         elements.pauseBtn.style.display = 'inline-block';
         elements.stopBtn.style.display = 'inline-block';
 
@@ -202,7 +202,7 @@ async function handleStartDownload() {
 
     if (response && response.status === 'started') {
       elements.progressSection.style.display = 'block';
-      elements.startBtn.style.display = 'none';
+      elements.progressSection.classList.add('active');
       elements.pauseBtn.style.display = 'inline-block';
       elements.stopBtn.style.display = 'inline-block';
 
@@ -255,7 +255,7 @@ async function handleStopDownload() {
     
     if (response.status === 'stopped') {
       elements.progressSection.style.display = 'none';
-      elements.startBtn.style.display = 'inline-block';
+      elements.progressSection.classList.remove('active');
       elements.pauseBtn.style.display = 'none';
       elements.stopBtn.style.display = 'none';
       
