@@ -42,6 +42,7 @@ async function initializePopup() {
     progressFill: document.getElementById('progressFill'),
     progressText: document.getElementById('progressText'),
     currentItem: document.getElementById('currentItem'),
+    controlsSection: document.querySelector('.controls-section'),
     startBtn: document.getElementById('startBtn'),
     pauseBtn: document.getElementById('pauseBtn'),
     stopBtn: document.getElementById('stopBtn'),
@@ -178,8 +179,10 @@ function formatProgressStats(percentage, completed, total, active) {
 
 // Discovery view helpers
 function showDiscoveryView() {
-  // Hide start button, show discovery view
-  updateStartButtonVisibility(true, true);
+  // Hide controls section (Start Download button)
+  elements.controlsSection.style.display = 'none';
+
+  // Show discovery view
   elements.discoverySection.style.display = 'block';
 
   // Reset to loading state
@@ -189,6 +192,9 @@ function showDiscoveryView() {
 
 function hideDiscoveryView() {
   elements.discoverySection.style.display = 'none';
+
+  // Show controls section again
+  elements.controlsSection.style.display = 'block';
 }
 
 function showDiscoveryError(errorMessage) {
