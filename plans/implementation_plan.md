@@ -1055,6 +1055,38 @@ Additional outcome:
 - [ ] **AC5.5.5**: UI is accessible to users with disabilities
 - [ ] **AC5.5.6**: Complete workflow can be performed intuitively
 
+#### Task 5.6: Enhanced Activity Logging (Day 1)
+
+**Purpose**: Provide detailed logging of all download lifecycle events in the Activity Log UI to give users comprehensive visibility into extension operations.
+
+**Implementation Requirements:**
+
+1. Create `broadcastLogMessage(message, type)` function in service worker to send log messages to sidepanel
+2. Add logging at 9 key points in download lifecycle:
+   - Total purchases found after discovery completes
+   - Starting each download with position and save path
+   - Download completed with position and save path
+   - Download paused with current item and position
+   - Download resumed with current item and position
+   - All downloads cancelled (Cancel & Reset button)
+   - Purchase discovery cancelled (discovery interstitial cancel)
+   - Failed downloads with error details
+   - Discovery errors and "No purchases found" cases
+3. Implement log deduplication in sidepanel to prevent repeated messages within 1-second window
+
+**Files to Modify:**
+- `background/service-worker.js` - Add broadcastLogMessage() and 9 logging points
+- `sidepanel/sidepanel.js` - Add deduplication logic and LOG_MESSAGE handler
+
+**Acceptance Test:**
+- [x] **AC5.6.1**: Discovery completion shows "Found N purchases" log entry
+- [x] **AC5.6.2**: Each download shows "Starting download N of M; saving to TrailMix/Artist/Album/File.ext"
+- [x] **AC5.6.3**: Each completion shows "Download completed N of M; saving to TrailMix/Artist/Album/File.ext"
+- [x] **AC5.6.4**: Pause shows "Download paused at N of M: TrailMix/Artist/Album"
+- [x] **AC5.6.5**: Resume shows "Download resumed at N of M: TrailMix/Artist/Album"
+- [x] **AC5.6.6**: Cancel & Reset shows "All downloads cancelled" and discovery cancel shows "Purchase discovery cancelled"
+- [x] **AC5.6.7**: Repeated messages (especially "Authentication verified") are deduplicated and shown only once
+
 ### Phase 6: Testing & Polish (Week 6)
 
 **Duration**: 5 days

@@ -262,6 +262,11 @@ downloadQueue.addEventListener('job-completed', (event) => {
   if (queueItem && queueItem.job && queueItem.job.purchase) {
     downloadState.completed++;
     console.log(`Download completed: ${queueItem.job.purchase.title} (${downloadState.completed}/${downloadState.purchases.length})`);
+
+    // Log download completion
+    const artist = queueItem.job.purchase.artist || 'Unknown Artist';
+    const title = queueItem.job.purchase.title || 'Unknown Album';
+    broadcastLogMessage(`Download completed ${downloadState.completed} of ${downloadState.purchases.length}; saving to TrailMix/${artist}/${title}`, 'success');
   } else {
     downloadState.completed++;
     console.log(`Download completed (${downloadState.completed}/${downloadState.purchases.length})`);
@@ -280,9 +285,16 @@ downloadQueue.addEventListener('job-failed', (event) => {
     if (queueItem && queueItem.job && queueItem.job.purchase) {
       downloadState.failed++;
       console.error(`Download failed: ${queueItem.job.purchase.title}`, error);
+
+      // Log download failure
+      const artist = queueItem.job.purchase.artist || 'Unknown Artist';
+      const title = queueItem.job.purchase.title || 'Unknown Album';
+      const errorMsg = error?.message || 'Unknown error';
+      broadcastLogMessage(`Download failed: TrailMix/${artist}/${title} - ${errorMsg}`, 'error');
     } else {
       downloadState.failed++;
       console.error('Download failed', event.detail);
+      broadcastLogMessage('Download failed: Unknown item', 'error');
     }
   }
 
@@ -361,6 +373,11 @@ async function handleStartDownload(data, sendResponse) {
 
       downloadState.isPaused = false;
       downloadState.isActive = true;
+
+      // Log resume
+      const nextPosition = downloadState.completed + 1;
+      const total = downloadState.purchases.length;
+      broadcastLogMessage(`Download resumed at ${nextPosition} of ${total}`, 'success');
 
       // Continue processing
       processNextDownload();
@@ -459,6 +476,18 @@ function handlePauseDownload(sendResponse) {
   // Pause the queue to prevent new downloads from starting
   downloadQueue.pause();
   downloadState.isPaused = true;
+
+  // Log pause with current item position
+  if (currentDownloadJob && currentDownloadJob.purchase) {
+    const position = downloadState.completed + 1;
+    const total = downloadState.purchases.length;
+    const artist = currentDownloadJob.purchase.artist || 'Unknown Artist';
+    const title = currentDownloadJob.purchase.title || 'Unknown Album';
+    broadcastLogMessage(`Download paused at ${position} of ${total}: TrailMix/${artist}/${title}`, 'warning');
+  } else {
+    broadcastLogMessage(`Downloads paused at ${downloadState.completed} of ${downloadState.purchases.length}`, 'warning');
+  }
+
   saveQueueState();
   sendResponse({ status: 'paused' });
 }
@@ -480,6 +509,10 @@ function handleStopDownload(sendResponse) {
   downloadState.completed = 0;
   downloadState.failed = 0;
   currentDownloadJob = null;
+
+  // Log cancellation
+  broadcastLogMessage('All downloads cancelled', 'warning');
+
   saveQueueState();
   sendResponse({ status: 'stopped' });
 }
@@ -612,18 +645,22 @@ async function handleDiscoverAndStart(sendResponse) {
     // Check if discovery was cancelled during the process
     if (discoveryCancelled) {
       console.log('Discovery was cancelled, aborting DISCOVER_AND_START');
+      broadcastLogMessage('Purchase discovery cancelled', 'warning');
       sendResponse({ status: 'cancelled' });
       return;
     }
 
     if (!discoveryResponse || !discoveryResponse.success) {
-      sendResponse({ status: 'failed', error: discoveryResponse?.error || 'Discovery failed' });
+      const errorMsg = discoveryResponse?.error || 'Discovery failed';
+      broadcastLogMessage(`Discovery error: ${errorMsg}`, 'error');
+      sendResponse({ status: 'failed', error: errorMsg });
       return;
     }
 
     // Check again before starting downloads (in case cancel happened right after discovery)
     if (discoveryCancelled) {
       console.log('Discovery was cancelled after completion, aborting queue setup');
+      broadcastLogMessage('Purchase discovery cancelled', 'warning');
       sendResponse({ status: 'cancelled' });
       return;
     }
@@ -647,6 +684,15 @@ async function handleDiscoverAndStart(sendResponse) {
       const withoutDirectUrl = total - withDirectUrl;
       console.log(`[TrailMix] DISCOVER_AND_START: total=${total}, with downloadUrl=${withDirectUrl}, without=${withoutDirectUrl}`);
     } catch (_) {}
+
+    // Log discovery completion
+    if (purchases.length === 0) {
+      broadcastLogMessage('No purchases found', 'warning');
+      sendResponse({ status: 'failed', error: 'No purchases found' });
+      return;
+    }
+
+    broadcastLogMessage(`Found ${purchases.length} purchases`, 'success');
 
     // Add all purchases to queue as DownloadJobs
     const jobs = purchases.map((purchase, index) => ({
@@ -803,6 +849,17 @@ function broadcastProgress() {
     progress: progress
   }).catch(() => {
     // Popup might not be open, ignore error
+  });
+}
+
+// Broadcast log message to sidepanel
+function broadcastLogMessage(message, type = 'info') {
+  chrome.runtime.sendMessage({
+    type: 'LOG_MESSAGE',
+    message: message,
+    logType: type
+  }).catch(() => {
+    // Sidepanel might not be open, ignore error
   });
 }
 /*
