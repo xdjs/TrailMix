@@ -210,54 +210,9 @@ async function handleStartDownload() {
     showDiscoveryView();
     addLogEntry('Discovering purchases...');
 
-    // Preferred: single-step flow handled entirely by background
-    let response = await sendMessageToBackground({ type: 'DISCOVER_AND_START' });
+    // Single-step flow: discovery and start handled entirely by background
+    const response = await sendMessageToBackground({ type: 'DISCOVER_AND_START' });
     console.log('DISCOVER_AND_START response:', response);
-
-    // Fallback to legacy two-step flow if needed
-    if (!response || response.status !== 'started') {
-      console.warn('DISCOVER_AND_START failed or unsupported, falling back to two-step flow');
-      addLogEntry('Falling back to legacy start flow', 'warning');
-
-      const discoveryResponse = await sendMessageToBackground({ type: 'DISCOVER_PURCHASES' });
-      console.log('Discovery response:', discoveryResponse);
-
-      if (!discoveryResponse || !discoveryResponse.success) {
-        const errorMsg = discoveryResponse?.error || 'Unknown error';
-        addLogEntry('Failed to discover purchases: ' + errorMsg, 'error');
-        console.error('Discovery failed, response:', discoveryResponse);
-        showDiscoveryError(errorMsg);
-        return;
-      }
-
-      const purchaseCount = discoveryResponse.purchases ? discoveryResponse.purchases.length : 0;
-
-      // Handle no purchases found
-      if (purchaseCount === 0) {
-        addLogEntry('No purchases found');
-        showDiscoveryError('No purchases found');
-        return;
-      }
-
-      addLogEntry(`Found ${purchaseCount} purchases`);
-      if (discoveryResponse.purchases && Array.isArray(discoveryResponse.purchases)) {
-        discoveryResponse.purchases.slice(0, 3).forEach(purchase => {
-          if (purchase && purchase.title && purchase.artist) {
-            addLogEntry(`  • ${purchase.title} by ${purchase.artist}`);
-          }
-        });
-        if (purchaseCount > 3) {
-          addLogEntry(`  ... and ${purchaseCount - 3} more`);
-        }
-      }
-
-      addLogEntry('Starting download process...');
-      response = await sendMessageToBackground({
-        type: 'START_DOWNLOAD',
-        purchases: discoveryResponse.purchases
-      });
-      console.log('START_DOWNLOAD response:', response);
-    }
 
     if (response && response.status === 'started') {
       // Hide discovery view and show progress view
