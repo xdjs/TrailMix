@@ -943,11 +943,11 @@ Additional outcome:
   - [x] Hide interstitial view
   - [x] Show download progress view
 
-**Task 5.0.2: Add Dynamic Purchase Count Updates** (Enhancement)
-- [ ] Update "Finding purchases..." text with count:
-  - [ ] Show "Found X purchases..." as discoveries are made
-  - [ ] Update in real-time during discovery process
-  - [ ] Keep final count visible before transition
+**Task 5.0.2: Add Dynamic Purchase Count Updates** (Enhancement) ✅ COMPLETED
+- [x] Update "Finding purchases..." text with count:
+  - [x] Show "Found X purchases..." as discoveries are made
+  - [x] Update in real-time during discovery process
+  - [x] Keep final count visible before transition
 
 **Acceptance Criteria**:
 - [x] **AC5.0.1**: Interstitial view shows immediately when "Start Download" clicked
