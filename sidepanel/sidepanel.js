@@ -270,6 +270,11 @@ async function handleStartDownload() {
 
       elements.progressStats.textContent = formatProgressStats(0, 0, response.totalPurchases || 0);
       addLogEntry('Download started', 'success');
+    } else if (response && response.status === 'cancelled') {
+      // Discovery was cancelled successfully
+      hideDiscoveryView();
+      updateStartButtonVisibility(true, false);
+      addLogEntry('Discovery cancelled', 'warning');
     } else if (response && response.status === 'failed') {
       const errorMsg = response.error || 'Unknown error';
       addLogEntry('Failed to start download: ' + errorMsg, 'error');
