@@ -1079,13 +1079,13 @@ Additional outcome:
 - `sidepanel/sidepanel.js` - Add deduplication logic and LOG_MESSAGE handler
 
 **Acceptance Test:**
-- [ ] **AC5.6.1**: Discovery completion shows "Found N purchases" log entry
-- [ ] **AC5.6.2**: Each download shows "Starting download N of M; saving to TrailMix/Artist/Album/File.ext"
-- [ ] **AC5.6.3**: Each completion shows "Download completed N of M; saving to TrailMix/Artist/Album/File.ext"
-- [ ] **AC5.6.4**: Pause shows "Download paused at N of M: TrailMix/Artist/Album"
-- [ ] **AC5.6.5**: Resume shows "Download resumed at N of M: TrailMix/Artist/Album"
-- [ ] **AC5.6.6**: Cancel & Reset shows "All downloads cancelled" and discovery cancel shows "Purchase discovery cancelled"
-- [ ] **AC5.6.7**: Repeated messages (especially "Authentication verified") are deduplicated and shown only once
+- [x] **AC5.6.1**: Discovery completion shows "Found N purchases" log entry
+- [x] **AC5.6.2**: Each download shows "Starting download N of M; saving to TrailMix/Artist/Album/File.ext"
+- [x] **AC5.6.3**: Each completion shows "Download completed N of M; saving to TrailMix/Artist/Album/File.ext"
+- [x] **AC5.6.4**: Pause shows "Download paused at N of M: TrailMix/Artist/Album"
+- [x] **AC5.6.5**: Resume shows "Download resumed at N of M: TrailMix/Artist/Album"
+- [x] **AC5.6.6**: Cancel & Reset shows "All downloads cancelled" and discovery cancel shows "Purchase discovery cancelled"
+- [x] **AC5.6.7**: Repeated messages (especially "Authentication verified") are deduplicated and shown only once
 
 ### Phase 6: Testing & Polish (Week 6)
 
