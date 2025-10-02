@@ -702,10 +702,7 @@ async function handleScrapePurchases(sendResponse) {
     };
 
     const purchases = [];
-    const totalItems = itemNodes.length;
-
-    for (let i = 0; i < itemNodes.length; i++) {
-      const el = itemNodes[i];
+    for (const el of itemNodes) {
       try {
         const a = el.querySelector('a[data-tid="download"]');
         if (!a || !a.getAttribute('href')) continue; // downloadable-only
@@ -719,20 +716,6 @@ async function handleScrapePurchases(sendResponse) {
           itemType: '',
           downloadUrl
         });
-
-        // Send progress update to background script
-        try {
-          chrome.runtime.sendMessage({
-            type: 'DISCOVERY_PROGRESS',
-            progress: {
-              found: purchases.length,
-              processed: i + 1,
-              total: totalItems
-            }
-          });
-        } catch (e) {
-          // Ignore if extension context invalidated
-        }
       } catch (err) {
         try { console.warn('[TrailMix] Error processing purchase item:', err?.message || String(err)); } catch (_) {}
       }

@@ -214,14 +214,6 @@ async function handleStartDownload() {
     const response = await sendMessageToBackground({ type: 'DISCOVER_AND_START' });
     console.log('DISCOVER_AND_START response:', response);
 
-    // Update discovery text with final count if available
-    if (response && response.totalPurchases > 0) {
-      const text = response.totalPurchases === 1
-        ? 'Found 1 purchase'
-        : `Found ${response.totalPurchases} purchases`;
-      elements.discoveryText.textContent = text;
-    }
-
     if (response && response.status === 'started') {
       // Hide discovery view and show progress view
       hideDiscoveryView();
@@ -361,18 +353,6 @@ function addLogEntry(message, type = 'info') {
   elements.logContent.scrollTop = elements.logContent.scrollHeight;
 }
 
-// Update discovery progress
-function updateDiscoveryProgress(progress) {
-  console.log('Sidepanel received discovery progress:', progress);
-  if (progress && progress.found !== undefined) {
-    const text = progress.found === 1
-      ? 'Found 1 purchase...'
-      : `Found ${progress.found} purchases...`;
-    elements.discoveryText.textContent = text;
-    console.log('Updated discovery text to:', text);
-  }
-}
-
 // Update progress (will be called by background script)
 function updateProgress(stats) {
   if (stats.total > 0) {
@@ -408,17 +388,5 @@ function updateProgress(stats) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'DOWNLOAD_PROGRESS') {
     updateProgress(message.progress);
-  } else if (message.type === 'DISCOVERY_PROGRESS') {
-    updateDiscoveryProgress(message.progress);
-  }
-});
-
-// Listen for storage changes (for discovery progress updates)
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && changes.discoveryProgress) {
-    const progress = changes.discoveryProgress.newValue;
-    if (progress) {
-      updateDiscoveryProgress(progress);
-    }
   }
 });

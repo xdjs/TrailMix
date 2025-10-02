@@ -217,11 +217,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleDiscoverAndStart(sendResponse);
       return true;
 
-    case 'DISCOVERY_PROGRESS':
-      // Relay discovery progress from content script to sidepanel
-      broadcastDiscoveryProgress(message.progress);
-      break;
-
     case 'DOWNLOAD_ALBUM':
       handleDownloadAlbum(message.data, sendResponse);
       return true;
@@ -662,13 +657,6 @@ async function handleDiscoverAndStart(sendResponse) {
 
     console.log('Added', purchases.length, 'jobs to queue. Queue size:', downloadQueue.getStats().total);
 
-    // Clear discovery progress from storage
-    try {
-      await chrome.storage.local.remove('discoveryProgress');
-    } catch (e) {
-      // Ignore
-    }
-
     // Kick off downloads
     processNextDownload();
 
@@ -816,24 +804,6 @@ function broadcastProgress() {
   }).catch(() => {
     // Popup might not be open, ignore error
   });
-}
-
-// Broadcast discovery progress to sidepanel
-async function broadcastDiscoveryProgress(progress) {
-  try {
-    // Store in chrome.storage.local for sidepanel to read
-    await chrome.storage.local.set({ discoveryProgress: progress });
-
-    // Also try to send via runtime.sendMessage as fallback
-    chrome.runtime.sendMessage({
-      type: 'DISCOVERY_PROGRESS',
-      progress: progress
-    }).catch(() => {
-      // Sidepanel might not be open, ignore error
-    });
-  } catch (e) {
-    // Ignore errors
-  }
 }
 /*
 // Helper to initiate download with Chrome Downloads API
