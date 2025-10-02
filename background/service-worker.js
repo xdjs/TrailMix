@@ -754,13 +754,6 @@ async function processNextDownload() {
     downloadQueue.currentJob = queueItem; // Set the queue's current job
     console.log(`Starting download: ${job.purchase.title}`);
 
-    // Log download start
-    const position = downloadState.completed + 1;
-    const total = downloadState.purchases.length;
-    const artist = job.purchase.artist || 'Unknown Artist';
-    const title = job.purchase.title || 'Unknown Album';
-    broadcastLogMessage(`Starting download ${position} of ${total}; saving to TrailMix/${artist}/${title}`, 'info');
-
     // Create download manager if not exists
     if (!globalDownloadManager) {
       globalDownloadManager = new DownloadManager();
