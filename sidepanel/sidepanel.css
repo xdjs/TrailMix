@@ -328,18 +328,6 @@ body {
   border-bottom: none;
 }
 
-.log-entry.error {
-  color: var(--error);
-}
-
-.log-entry.success {
-  color: var(--success);
-}
-
-.log-entry.warning {
-  color: var(--warning);
-}
-
 /* Footer */
 .footer {
   border-top: 1px solid var(--lavender-border);
