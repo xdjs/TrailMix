@@ -217,6 +217,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleDiscoverAndStart(sendResponse);
       return true;
 
+    case 'DISCOVERY_PROGRESS':
+      // Relay discovery progress from content script to sidepanel
+      broadcastDiscoveryProgress(message.progress);
+      break;
+
     case 'DOWNLOAD_ALBUM':
       handleDownloadAlbum(message.data, sendResponse);
       return true;
@@ -803,6 +808,16 @@ function broadcastProgress() {
     progress: progress
   }).catch(() => {
     // Popup might not be open, ignore error
+  });
+}
+
+// Broadcast discovery progress to sidepanel
+function broadcastDiscoveryProgress(progress) {
+  chrome.runtime.sendMessage({
+    type: 'DISCOVERY_PROGRESS',
+    progress: progress
+  }).catch(() => {
+    // Sidepanel might not be open, ignore error
   });
 }
 /*

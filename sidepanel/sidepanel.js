@@ -353,6 +353,16 @@ function addLogEntry(message, type = 'info') {
   elements.logContent.scrollTop = elements.logContent.scrollHeight;
 }
 
+// Update discovery progress
+function updateDiscoveryProgress(progress) {
+  if (progress && progress.found !== undefined) {
+    const text = progress.found === 1
+      ? 'Found 1 purchase...'
+      : `Found ${progress.found} purchases...`;
+    elements.discoveryText.textContent = text;
+  }
+}
+
 // Update progress (will be called by background script)
 function updateProgress(stats) {
   if (stats.total > 0) {
@@ -388,5 +398,7 @@ function updateProgress(stats) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'DOWNLOAD_PROGRESS') {
     updateProgress(message.progress);
+  } else if (message.type === 'DISCOVERY_PROGRESS') {
+    updateDiscoveryProgress(message.progress);
   }
 });
