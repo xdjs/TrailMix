@@ -293,4 +293,85 @@ describe('Service Worker', () => {
       await expect(onInstalledCallback({ reason: 'install' })).resolves.toBeUndefined();
     });
   });
+
+  describe('Activity Logging (Task 5.6)', () => {
+    const fs = require('fs');
+    const path = require('path');
+
+    test('should have broadcastLogMessage function implementation', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      expect(jsContent).toContain('function broadcastLogMessage');
+      expect(jsContent).toContain('LOG_MESSAGE');
+      expect(jsContent).toContain('chrome.runtime.sendMessage');
+    });
+
+    test('should default to info type in broadcastLogMessage', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      // Check for default parameter
+      expect(jsContent).toMatch(/function broadcastLogMessage.*type\s*=\s*['"']info['"']/);
+    });
+
+    test('should send message with correct structure', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      // Check message structure
+      expect(jsContent).toMatch(/type:\s*['"']LOG_MESSAGE['"']/);
+      expect(jsContent).toMatch(/message:\s*message/);
+      expect(jsContent).toMatch(/logType:\s*type/);
+    });
+
+    test('should handle sendMessage errors with catch', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      // Check for error handling in broadcastLogMessage
+      const broadcastFuncStart = jsContent.indexOf('function broadcastLogMessage');
+      const broadcastFuncEnd = jsContent.indexOf('}', broadcastFuncStart + 200);
+      const broadcastFunc = jsContent.substring(broadcastFuncStart, broadcastFuncEnd);
+
+      expect(broadcastFunc).toContain('.catch(');
+    });
+
+    test('should log discovery completion with purchase count', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      expect(jsContent).toMatch(/broadcastLogMessage.*Found.*purchases\.length.*purchases/);
+    });
+
+    test('should log download start with position and path', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      expect(jsContent).toMatch(/broadcastLogMessage.*Starting download.*position.*total/);
+      expect(jsContent).toMatch(/TrailMix.*artist.*title/);
+    });
+
+    test('should log download completion', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      expect(jsContent).toMatch(/broadcastLogMessage.*Download completed/);
+    });
+
+    test('should log pause and resume operations', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      expect(jsContent).toMatch(/broadcastLogMessage.*paused/);
+      expect(jsContent).toMatch(/broadcastLogMessage.*resumed/);
+    });
+
+    test('should log cancellation operations', () => {
+      const jsPath = path.join(__dirname, '../../background/service-worker.js');
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+      expect(jsContent).toMatch(/broadcastLogMessage.*cancelled/);
+    });
+  });
 });

@@ -478,7 +478,7 @@ function handlePauseDownload(sendResponse) {
   downloadState.isPaused = true;
 
   // Log pause with current item position
-  if (currentDownloadJob) {
+  if (currentDownloadJob && currentDownloadJob.purchase) {
     const position = downloadState.completed + 1;
     const total = downloadState.purchases.length;
     const artist = currentDownloadJob.purchase.artist || 'Unknown Artist';

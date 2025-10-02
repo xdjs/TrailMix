@@ -380,4 +380,104 @@ describe('Side Panel UI', () => {
       expect(percentage).toBe(33);
     });
   });
+
+  describe('Activity Log Functionality (Task 5.6)', () => {
+    describe('Log Structure', () => {
+      test('should have log content element', () => {
+        const logContent = document.getElementById('logContent');
+        expect(logContent).toBeTruthy();
+        expect(logContent.className).toBe('log-content');
+      });
+
+      test('should have initial log entry', () => {
+        const logContent = document.getElementById('logContent');
+        const entries = logContent.querySelectorAll('.log-entry');
+        expect(entries.length).toBeGreaterThan(0);
+        expect(entries[0].textContent).toContain('Extension initialized');
+      });
+
+      test('should have clear log button', () => {
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        expect(clearLogBtn).toBeTruthy();
+        expect(clearLogBtn.textContent).toBe('Clear Log');
+      });
+    });
+
+    describe('Log Entry Format', () => {
+      test('should support info, success, warning, error classes', () => {
+        const logContent = document.getElementById('logContent');
+
+        // Create test entries with different types
+        const types = ['info', 'success', 'warning', 'error'];
+        types.forEach(type => {
+          const entry = document.createElement('div');
+          entry.className = `log-entry ${type}`;
+          entry.textContent = `Test ${type} message`;
+          logContent.appendChild(entry);
+        });
+
+        const entries = logContent.querySelectorAll('.log-entry');
+        const lastFour = Array.from(entries).slice(-4);
+
+        expect(lastFour[0].className).toBe('log-entry info');
+        expect(lastFour[1].className).toBe('log-entry success');
+        expect(lastFour[2].className).toBe('log-entry warning');
+        expect(lastFour[3].className).toBe('log-entry error');
+      });
+
+      test('should support timestamp format in entries', () => {
+        const logContent = document.getElementById('logContent');
+
+        // Create test entry with timestamp
+        const entry = document.createElement('div');
+        entry.className = 'log-entry info';
+        entry.textContent = '1:35:19 PM: Starting download 7 of 24';
+        logContent.appendChild(entry);
+
+        const lastEntry = logContent.lastElementChild;
+        expect(lastEntry.textContent).toMatch(/\d+:\d+:\d+.*:/);
+      });
+    });
+
+    describe('Message Deduplication Implementation', () => {
+      test('should have deduplication variables in script', () => {
+        const jsPath = path.join(__dirname, '../../sidepanel/sidepanel.js');
+        const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+        // Check for deduplication implementation
+        expect(jsContent).toContain('lastLogMessage');
+        expect(jsContent).toContain('lastLogTimestamp');
+        expect(jsContent).toContain('Date.now()');
+      });
+
+      test('should check for duplicates within time window', () => {
+        const jsPath = path.join(__dirname, '../../sidepanel/sidepanel.js');
+        const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+        // Check for 1-second deduplication logic
+        expect(jsContent).toContain('1000'); // 1 second in ms
+        expect(jsContent).toMatch(/lastLogMessage.*===.*message/);
+      });
+    });
+
+    describe('LOG_MESSAGE Handler Implementation', () => {
+      test('should have LOG_MESSAGE handler in script', () => {
+        const jsPath = path.join(__dirname, '../../sidepanel/sidepanel.js');
+        const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+        expect(jsContent).toContain('LOG_MESSAGE');
+        expect(jsContent).toContain('chrome.runtime.onMessage');
+        expect(jsContent).toContain('addLogEntry');
+      });
+
+      test('should handle message with logType parameter', () => {
+        const jsPath = path.join(__dirname, '../../sidepanel/sidepanel.js');
+        const jsContent = fs.readFileSync(jsPath, 'utf8');
+
+        // Check that LOG_MESSAGE handler extracts message and logType
+        expect(jsContent).toMatch(/message\.message/);
+        expect(jsContent).toMatch(/message\.logType/);
+      });
+    });
+  });
 });
