@@ -1,18 +1,19 @@
 # Trail Mix Chrome Extension
 
-A Chrome extension that allows users to bulk-download their paid Bandcamp purchases in MP3 format with embedded metadata and artwork.
+A Chrome extension that allows users to bulk-download their paid Bandcamp purchases with embedded metadata and artwork.
 
 ## Features
 
 - **Bulk Download**: Download all your paid Bandcamp purchases at once
 - **Side Panel UI**: Persistent side panel interface that stays open during downloads
-- **MP3 Format**: Downloads in MP3 format with embedded metadata
-- **Artwork Embedding**: Includes album artwork in downloaded files
-- **Smart Organization**: Organizes files as `TrailMix/Artist/Album/filename.mp3`
+- **High-Quality Audio**: Downloads in AAC (M4A) or original format (ZIP for albums with multiple formats)
+- **Smart Organization**: Organizes files as `TrailMix/Artist/Album/filename.ext`
 - **Progress Tracking**: Real-time progress dashboard with detailed status
+- **Activity Logging**: Comprehensive activity log showing all download lifecycle events
 - **Error Handling**: Automatic retry and graceful error recovery
 - **Session Management**: Secure authentication without credential storage
 - **Queue Persistence**: Downloads resume automatically after browser restarts
+- **Pause/Resume**: Full control over download queue with pause and resume functionality
 
 ## Installation
 
@@ -41,11 +42,26 @@ A Chrome extension that allows users to bulk-download their paid Bandcamp purcha
 1. **Open Side Panel**: Click the Trail Mix extension icon in your browser toolbar to open the side panel
 2. **Login**: If not authenticated, click "Login to Bandcamp" (opens in new tab, side panel stays open)
 3. **Authenticate**: Log in to Bandcamp in the new tab, then return to the side panel
-4. **Auto-Refresh**: The side panel automatically detects when you've logged in and updates the UI
-5. **Start Download**: Click "Start Download" to begin bulk downloading your purchases
-6. **Monitor Progress**: Watch the progress dashboard in the side panel for real-time status updates
-7. **Pause/Resume**: Use the Pause and Resume buttons to control downloads
+4. **Auto-Detection**: The side panel automatically detects when you've logged in
+5. **Start Download**: Click "Start Download" to discover and begin downloading your purchases
+6. **Monitor Progress**:
+   - Watch the progress bar and download statistics
+   - View detailed activity log (expand "Activity Log" section)
+   - See current download information in real-time
+7. **Control Downloads**:
+   - **Pause**: Click "Pause" to pause the current download and queue
+   - **Resume**: Click "Resume" to continue from where you left off
+   - **Cancel & Reset**: Click "Cancel & Reset" to stop all downloads and clear the queue
 8. **Completion**: Files are organized in your Downloads folder under `TrailMix/Artist/Album/`
+
+### Activity Log
+
+The Activity Log provides comprehensive visibility into download operations:
+- Discovery status (purchases found, errors)
+- Download start/completion with file paths
+- Pause/resume events with current position
+- Cancellation and error messages
+- Automatic deduplication of repeated messages
 
 ### Side Panel Benefits
 
@@ -81,24 +97,32 @@ trail-mix/
 ### Running Tests
 
 ```bash
-# Run unit tests
-npm run test:unit
-
-# Run integration tests
-npm run test:integration
-
-# Run acceptance tests
-npm run test:acceptance
-
 # Run all tests
 npm test
+
+# Run specific test file
+npm test -- <test-file-name>
+
+# Run tests in watch mode
+npm test -- --watch
 ```
+
+### Test Coverage
+
+Current test coverage includes:
+- Service worker lifecycle and message handling
+- Download queue with persistence
+- Download job state management
+- Authentication manager
+- Content script scraping and navigation
+- Side panel UI and activity logging
+- File naming and metadata handling
 
 ### Code Quality
 
-- Minimum 85% test coverage required
-- ESLint configuration for code style
-- Pre-commit hooks for quality checks
+- Test-driven development approach
+- Comprehensive unit test coverage
+- Code follows Chrome Extension Manifest V3 best practices
 
 ## Architecture
 
@@ -122,24 +146,36 @@ The extension follows a modular architecture:
 
 This extension is intended for **personal archival use only** of music you have legally purchased on Bandcamp. Users are responsible for complying with Bandcamp's terms of service and applicable copyright laws.
 
-## Support
+## Current Status
 
-For issues, feature requests, or questions:
-- Check the [troubleshooting guide](docs/troubleshooting.md)
-- Review [known issues](docs/known-issues.md)
-- Open an issue on the project repository
+**Phase 5**: UI Enhancement - In Progress
+- ✅ Phase 1: Chrome Extension Foundation (Complete)
+- ✅ Phase 2: Authentication & Session Management (Complete)
+- ✅ Phase 3: Purchase Discovery & Scraping (Complete)
+- ✅ Phase 4: Download System & Metadata (Complete)
+- 🔄 Phase 5: UI Polish & User Experience (In Progress)
+  - ✅ Side Panel UI Conversion
+  - ✅ Enhanced Activity Logging
+- ⏳ Phase 6: Testing & Polish (Planned)
+- ⏳ Phase 7: Production Release (Planned)
+
+### Recent Updates
+
+- **Task 5.6: Enhanced Activity Logging** - Comprehensive logging of download lifecycle events
+- **Task 4.10: Side Panel UI** - Converted popup to persistent side panel interface
+- **Task 4.7.4: Album Folder Organization** - Downloads organized by Artist/Album structure
+
+## Roadmap
+
+See the [implementation plan](plans/implementation_plan.md) for detailed development phases, tasks, and acceptance criteria.
 
 ## License
 
 MIT License - See [LICENSE](LICENSE) file for details
 
-## Roadmap
-
-See the [implementation plan](plans/implementation_plan.md) for detailed development phases and timelines.
-
 ---
 
-**Version**: 1.0.0-dev  
-**Status**: In Development  
+**Version**: 1.0.0-dev
+**Status**: Phase 5 - UI Enhancement
 **Chrome Extension**: Manifest V3
 
