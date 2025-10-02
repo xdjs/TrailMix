@@ -137,8 +137,7 @@ async function checkAuthenticationStatus() {
       updateStartButtonVisibility(true, false);
       elements.startBtn.disabled = false;
       elements.loginBtn.style.display = 'none';
-      addLogEntry('Authentication verified');
-      
+
       // Show user info if available
       if (response.userInfo && response.userInfo.collectionCount !== undefined) {
         addLogEntry(`Found ${response.userInfo.collectionCount} items in collection`);
@@ -343,12 +342,26 @@ function sendMessageToBackground(message) {
   });
 }
 
+// Track last log message for deduplication
+let lastLogMessage = null;
+let lastLogTimestamp = 0;
+
 function addLogEntry(message, type = 'info') {
+  const now = Date.now();
+
+  // Deduplicate: skip if same message within 1 second
+  if (lastLogMessage === message && (now - lastLogTimestamp) < 1000) {
+    return;
+  }
+
+  lastLogMessage = message;
+  lastLogTimestamp = now;
+
   const timestamp = new Date().toLocaleTimeString();
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
   entry.textContent = `${timestamp}: ${message}`;
-  
+
   elements.logContent.appendChild(entry);
   elements.logContent.scrollTop = elements.logContent.scrollHeight;
 }
@@ -384,9 +397,11 @@ function updateProgress(stats) {
   }
 }
 
-// Listen for progress updates from background
+// Listen for progress updates and log messages from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'DOWNLOAD_PROGRESS') {
     updateProgress(message.progress);
+  } else if (message.type === 'LOG_MESSAGE') {
+    addLogEntry(message.message, message.logType);
   }
 });
