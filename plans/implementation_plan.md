@@ -920,28 +920,28 @@ Additional outcome:
 3. No purchases found → Update text to show "No purchases found"
 4. Purchases found → Transition to download progress view when first download starts
 
-**Task 5.0.1: Implement Static Interstitial View** (Initial Implementation)
-- [ ] Create interstitial view HTML structure:
-  - [ ] Use same header/footer as other views
-  - [ ] Add centered pink (#FF4EB6) circular spinner/loading indicator
-  - [ ] Add "Finding purchases..." text below spinner
-  - [ ] Add "Cancel" button styled same as "Cancel & Reset" (btn-danger)
-- [ ] Implement view transition logic:
-  - [ ] Show interstitial when "Start Download" clicked
-  - [ ] Hide start download button view
-  - [ ] Keep header/footer visible
-- [ ] Implement cancel functionality:
-  - [ ] Wire up cancel button to same logic as "Cancel & Reset" in download progress view
-  - [ ] Return to start download button view on cancel
-  - [ ] Clear any in-progress discovery
-- [ ] Handle error states:
-  - [ ] No purchases found: Remove spinner, update text to "No purchases found"
-  - [ ] Other errors: Remove spinner, display raw error text
-  - [ ] Stay on interstitial view for both error cases
-- [ ] Implement transition to download progress:
-  - [ ] Transition when first download is about to start (after discovery complete)
-  - [ ] Hide interstitial view
-  - [ ] Show download progress view
+**Task 5.0.1: Implement Static Interstitial View** (Initial Implementation) ✅ COMPLETED
+- [x] Create interstitial view HTML structure:
+  - [x] Use same header/footer as other views
+  - [x] Add centered pink (#FF4EB6) circular spinner/loading indicator
+  - [x] Add "Finding purchases..." text below spinner
+  - [x] Add "Cancel" button styled same as "Cancel & Reset" (btn-danger)
+- [x] Implement view transition logic:
+  - [x] Show interstitial when "Start Download" clicked
+  - [x] Hide start download button view
+  - [x] Keep header/footer visible
+- [x] Implement cancel functionality:
+  - [x] Wire up cancel button to same logic as "Cancel & Reset" in download progress view
+  - [x] Return to start download button view on cancel
+  - [x] Clear any in-progress discovery
+- [x] Handle error states:
+  - [x] No purchases found: Remove spinner, update text to "No purchases found"
+  - [x] Other errors: Remove spinner, display raw error text
+  - [x] Stay on interstitial view for both error cases
+- [x] Implement transition to download progress:
+  - [x] Transition when first download is about to start (after discovery complete)
+  - [x] Hide interstitial view
+  - [x] Show download progress view
 
 **Task 5.0.2: Add Dynamic Purchase Count Updates** (Enhancement)
 - [ ] Update "Finding purchases..." text with count:
@@ -950,13 +950,13 @@ Additional outcome:
   - [ ] Keep final count visible before transition
 
 **Acceptance Criteria**:
-- [ ] **AC5.0.1**: Interstitial view shows immediately when "Start Download" clicked
-- [ ] **AC5.0.2**: Cancel button immediately stops discovery and returns to start view
-- [ ] **AC5.0.3**: "No purchases found" message displays correctly when collection is empty
-- [ ] **AC5.0.4**: Errors display as text on interstitial view (no crashes)
-- [ ] **AC5.0.5**: Smooth transition to download progress when purchases found
-- [ ] **AC5.0.6**: Spinner uses Trail Mix brand color (#FF4EB6)
-- [ ] **AC5.0.7**: View maintains consistent header/footer with rest of UI
+- [x] **AC5.0.1**: Interstitial view shows immediately when "Start Download" clicked
+- [x] **AC5.0.2**: Cancel button immediately stops discovery and returns to start view
+- [x] **AC5.0.3**: "No purchases found" message displays correctly when collection is empty
+- [x] **AC5.0.4**: Errors display as text on interstitial view (no crashes)
+- [x] **AC5.0.5**: Smooth transition to download progress when purchases found
+- [x] **AC5.0.6**: Spinner uses Trail Mix brand color (#FF4EB6)
+- [x] **AC5.0.7**: View maintains consistent header/footer with rest of UI
 
 #### Task 5.1: Progress Dashboard Design & Implementation (Day 1-2)
 - [ ] Design progress dashboard layout:
