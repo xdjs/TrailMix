@@ -106,6 +106,51 @@ body {
   color: var(--text-secondary);
 }
 
+/* Discovery Interstitial Section */
+.discovery-section {
+  margin-bottom: 16px;
+  padding: 32px 16px;
+}
+
+.discovery-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--lavender-light);
+  border-top-color: var(--primary-pink);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.discovery-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.discovery-controls {
+  display: flex;
+  justify-content: center;
+}
+
+.discovery-controls .btn {
+  min-width: 200px;
+}
+
 /* Progress Section */
 .progress-section {
   margin-bottom: 16px;

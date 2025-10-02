@@ -28,6 +28,9 @@ let downloadQueue = new DownloadQueue();
 // Process reentrancy guard
 let isProcessing = false;
 
+// Discovery cancellation flag
+let discoveryCancelled = false;
+
 // Store metadata for downloads (URL -> metadata)
 // This is used to pass metadata from download-manager to onDeterminingFilename listener
 const downloadMetadata = new Map();
@@ -461,6 +464,9 @@ function handlePauseDownload(sendResponse) {
 }
 
 function handleStopDownload(sendResponse) {
+  // Set discovery cancellation flag to abort any in-progress discovery
+  discoveryCancelled = true;
+
   // Cancel the current active download if exists
   if (globalDownloadManager && globalDownloadManager.activeDownload) {
     console.log('Cancelling active download before stopping');
@@ -598,9 +604,27 @@ async function discoverPurchases() {
 // Discover and immediately start downloads (single-step flow)
 async function handleDiscoverAndStart(sendResponse) {
   try {
+    // Reset cancellation flag at the start of discovery
+    discoveryCancelled = false;
+
     const discoveryResponse = await discoverPurchases();
+
+    // Check if discovery was cancelled during the process
+    if (discoveryCancelled) {
+      console.log('Discovery was cancelled, aborting DISCOVER_AND_START');
+      sendResponse({ status: 'cancelled' });
+      return;
+    }
+
     if (!discoveryResponse || !discoveryResponse.success) {
       sendResponse({ status: 'failed', error: discoveryResponse?.error || 'Discovery failed' });
+      return;
+    }
+
+    // Check again before starting downloads (in case cancel happened right after discovery)
+    if (discoveryCancelled) {
+      console.log('Discovery was cancelled after completion, aborting queue setup');
+      sendResponse({ status: 'cancelled' });
       return;
     }
 

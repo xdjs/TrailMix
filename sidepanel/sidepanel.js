@@ -33,11 +33,16 @@ async function initializePopup() {
     statusIndicator: document.getElementById('statusIndicator'),
     statusText: document.getElementById('statusText'),
     loginBtn: document.getElementById('loginBtn'),
+    discoverySection: document.getElementById('discoverySection'),
+    discoverySpinner: document.getElementById('discoverySpinner'),
+    discoveryText: document.getElementById('discoveryText'),
+    discoveryCancelBtn: document.getElementById('discoveryCancelBtn'),
     progressSection: document.getElementById('progressSection'),
     progressStats: document.getElementById('progressStats'),
     progressFill: document.getElementById('progressFill'),
     progressText: document.getElementById('progressText'),
     currentItem: document.getElementById('currentItem'),
+    controlsSection: document.querySelector('.controls-section'),
     startBtn: document.getElementById('startBtn'),
     pauseBtn: document.getElementById('pauseBtn'),
     stopBtn: document.getElementById('stopBtn'),
@@ -61,6 +66,7 @@ function setupEventListeners() {
   // Pause button handler is set dynamically via onclick to toggle between pause/resume
   elements.pauseBtn.onclick = handlePauseDownload; // Initial state is pause
   elements.stopBtn.addEventListener('click', handleStopDownload);
+  elements.discoveryCancelBtn.addEventListener('click', handleDiscoveryCancel);
   elements.loginBtn.addEventListener('click', handleLogin);
 
   // Log
@@ -171,53 +177,46 @@ function formatProgressStats(percentage, completed, total, active) {
   return stats;
 }
 
+// Discovery view helpers
+function showDiscoveryView() {
+  // Hide controls section (Start Download button)
+  elements.controlsSection.style.display = 'none';
+
+  // Show discovery view
+  elements.discoverySection.style.display = 'block';
+
+  // Reset to loading state
+  elements.discoverySpinner.style.display = 'block';
+  elements.discoveryText.textContent = 'Finding purchases...';
+}
+
+function hideDiscoveryView() {
+  elements.discoverySection.style.display = 'none';
+
+  // Show controls section again
+  elements.controlsSection.style.display = 'block';
+}
+
+function showDiscoveryError(errorMessage) {
+  // Hide spinner and show error text
+  elements.discoverySpinner.style.display = 'none';
+  elements.discoveryText.textContent = errorMessage;
+}
+
 // Event handlers
 async function handleStartDownload() {
   try {
-    addLogEntry('Discovering purchases and starting downloads...');
+    // Show discovery interstitial view
+    showDiscoveryView();
+    addLogEntry('Discovering purchases...');
 
-    // Preferred: single-step flow handled entirely by background
-    let response = await sendMessageToBackground({ type: 'DISCOVER_AND_START' });
+    // Single-step flow: discovery and start handled entirely by background
+    const response = await sendMessageToBackground({ type: 'DISCOVER_AND_START' });
     console.log('DISCOVER_AND_START response:', response);
 
-    // Fallback to legacy two-step flow if needed
-    if (!response || response.status !== 'started') {
-      console.warn('DISCOVER_AND_START failed or unsupported, falling back to two-step flow');
-      addLogEntry('Falling back to legacy start flow', 'warning');
-
-      const discoveryResponse = await sendMessageToBackground({ type: 'DISCOVER_PURCHASES' });
-      console.log('Discovery response:', discoveryResponse);
-
-      if (!discoveryResponse || !discoveryResponse.success) {
-        addLogEntry('Failed to discover purchases: ' + (discoveryResponse?.error || 'Unknown error'), 'error');
-        console.error('Discovery failed, response:', discoveryResponse);
-        return;
-      }
-
-      const purchaseCount = discoveryResponse.purchases ? discoveryResponse.purchases.length : 0;
-      addLogEntry(`Found ${purchaseCount} purchases`);
-      if (purchaseCount === 0) return;
-
-      if (discoveryResponse.purchases && Array.isArray(discoveryResponse.purchases)) {
-        discoveryResponse.purchases.slice(0, 3).forEach(purchase => {
-          if (purchase && purchase.title && purchase.artist) {
-            addLogEntry(`  • ${purchase.title} by ${purchase.artist}`);
-          }
-        });
-        if (purchaseCount > 3) {
-          addLogEntry(`  ... and ${purchaseCount - 3} more`);
-        }
-      }
-
-      addLogEntry('Starting download process...');
-      response = await sendMessageToBackground({
-        type: 'START_DOWNLOAD',
-        purchases: discoveryResponse.purchases
-      });
-      console.log('START_DOWNLOAD response:', response);
-    }
-
     if (response && response.status === 'started') {
+      // Hide discovery view and show progress view
+      hideDiscoveryView();
       elements.progressSection.style.display = 'block';
       elements.progressSection.classList.add('active');
       elements.pauseBtn.style.display = 'inline-block';
@@ -226,15 +225,24 @@ async function handleStartDownload() {
 
       elements.progressStats.textContent = formatProgressStats(0, 0, response.totalPurchases || 0);
       addLogEntry('Download started', 'success');
+    } else if (response && response.status === 'cancelled') {
+      // Discovery was cancelled successfully
+      hideDiscoveryView();
+      updateStartButtonVisibility(true, false);
+      addLogEntry('Discovery cancelled', 'warning');
     } else if (response && response.status === 'failed') {
-      addLogEntry('Failed to start download: ' + (response.error || 'Unknown error'), 'error');
+      const errorMsg = response.error || 'Unknown error';
+      addLogEntry('Failed to start download: ' + errorMsg, 'error');
+      showDiscoveryError(errorMsg);
     } else {
       addLogEntry('No response from download handler', 'error');
       console.error('Invalid or missing response:', response);
+      showDiscoveryError('No response from download handler');
     }
   } catch (error) {
     console.error('Error in handleStartDownload:', error);
     addLogEntry('Failed to start download: ' + error.message, 'error');
+    showDiscoveryError(error.message);
   }
 }
 
@@ -270,7 +278,7 @@ async function handleResumeDownload() {
 async function handleStopDownload() {
   try {
     const response = await sendMessageToBackground({ type: 'STOP_DOWNLOAD' });
-    
+
     if (response.status === 'stopped') {
       elements.progressSection.style.display = 'none';
       elements.progressSection.classList.remove('active');
@@ -282,6 +290,25 @@ async function handleStopDownload() {
     }
   } catch (error) {
     addLogEntry('Failed to stop download', 'error');
+  }
+}
+
+async function handleDiscoveryCancel() {
+  try {
+    // Use same logic as stop download to cancel any in-progress operations
+    const response = await sendMessageToBackground({ type: 'STOP_DOWNLOAD' });
+
+    if (response.status === 'stopped') {
+      // Hide discovery view and return to start state
+      hideDiscoveryView();
+      updateStartButtonVisibility(true, false); // authenticated=true, downloadActive=false
+      addLogEntry('Discovery cancelled', 'warning');
+    }
+  } catch (error) {
+    addLogEntry('Failed to cancel discovery', 'error');
+    // Still hide the view even if cancel failed
+    hideDiscoveryView();
+    updateStartButtonVisibility(true, false);
   }
 }
 

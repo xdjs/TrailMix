@@ -906,9 +906,58 @@ Additional outcome:
 
 ### Phase 5: User Interface Enhancements (Week 5)
 
-**Duration**: 5 days
+**Duration**: 4 days
 **Dependencies**: Phase 4.5 complete (UI polish done)
-**Deliverables**: Enhanced user interface with advanced features and controls
+**Deliverables**: Enhanced user interface with improved progress visualization and notifications
+
+#### Task 5.0: Purchase Discovery Interstitial View (Day 1)
+
+**Purpose**: Show a loading state between "Start Download" and download progress view
+
+**Flow**:
+1. User clicks "Start Download" → Show interstitial view
+2. User clicks "Cancel" during discovery → Cancel & reset, return to start download view
+3. No purchases found → Update text to show "No purchases found"
+4. Purchases found → Transition to download progress view when first download starts
+
+**Task 5.0.1: Implement Static Interstitial View** (Initial Implementation) ✅ COMPLETED
+- [x] Create interstitial view HTML structure:
+  - [x] Use same header/footer as other views
+  - [x] Add centered pink (#FF4EB6) circular spinner/loading indicator
+  - [x] Add "Finding purchases..." text below spinner
+  - [x] Add "Cancel" button styled same as "Cancel & Reset" (btn-danger)
+- [x] Implement view transition logic:
+  - [x] Show interstitial when "Start Download" clicked
+  - [x] Hide start download button view
+  - [x] Keep header/footer visible
+- [x] Implement cancel functionality:
+  - [x] Wire up cancel button to same logic as "Cancel & Reset" in download progress view
+  - [x] Return to start download button view on cancel
+  - [x] Clear any in-progress discovery
+- [x] Handle error states:
+  - [x] No purchases found: Remove spinner, update text to "No purchases found"
+  - [x] Other errors: Remove spinner, display raw error text
+  - [x] Stay on interstitial view for both error cases
+- [x] Implement transition to download progress:
+  - [x] Transition when first download is about to start (after discovery complete)
+  - [x] Hide interstitial view
+  - [x] Show download progress view
+
+**Task 5.0.2: Add Dynamic Purchase Count Updates** (Enhancement) ❌ CANCELLED
+- [ ] Update "Finding purchases..." text with count:
+  - [ ] Show "Found X purchases..." as discoveries are made
+  - [ ] Update in real-time during discovery process
+  - [ ] Keep final count visible before transition
+- **Note**: Feature cancelled - static text is sufficient for interstitial
+
+**Acceptance Criteria**:
+- [x] **AC5.0.1**: Interstitial view shows immediately when "Start Download" clicked
+- [x] **AC5.0.2**: Cancel button immediately stops discovery and returns to start view
+- [x] **AC5.0.3**: "No purchases found" message displays correctly when collection is empty
+- [x] **AC5.0.4**: Errors display as text on interstitial view (no crashes)
+- [x] **AC5.0.5**: Smooth transition to download progress when purchases found
+- [x] **AC5.0.6**: Spinner uses Trail Mix brand color (#FF4EB6)
+- [x] **AC5.0.7**: View maintains consistent header/footer with rest of UI
 
 #### Task 5.1: Progress Dashboard Design & Implementation (Day 1-2)
 - [ ] Design progress dashboard layout:
@@ -927,27 +976,7 @@ Additional outcome:
   - [ ] Show download queue position
   - [ ] Add estimated time remaining
 
-#### Task 5.2: Control Interface Development (Day 2-3)
-- [ ] Create download control buttons:
-  - [ ] Start download button
-  - [ ] Pause/resume download button
-  - [ ] Stop download button
-  - [ ] Clear queue button
-- [ ] Implement settings configuration:
-  - [ ] Custom download location selector
-  - [ ] Download throttling options
-  - [ ] Retry attempt configuration
-  - [ ] Metadata embedding preferences
-- [ ] Add advanced controls:
-  - [ ] Skip current download option
-  - [ ] Restart failed downloads
-  - [ ] Priority adjustment for queue items
-- [ ] Create settings persistence:
-  - [ ] Save user preferences
-  - [ ] Load settings on extension start
-  - [ ] Validate setting values
-
-#### Task 5.3: Status Reporting & Logging (Day 3)
+#### Task 5.2: Status Reporting & Logging (Day 2)
 - [ ] Implement download status indicators:
   - [ ] Authentication status display
   - [ ] Download queue status
@@ -963,7 +992,7 @@ Additional outcome:
   - [ ] Record processing decisions
   - [ ] Show log in expandable section
 
-#### Task 5.4: Completion & Notification System (Day 3-4)
+#### Task 5.3: Completion & Notification System (Day 2-3)
 - [ ] Implement completion notifications:
   - [ ] Browser notifications for download completion
   - [ ] Success/failure summary display
@@ -979,7 +1008,7 @@ Additional outcome:
   - [ ] Export download log
   - [ ] Start new download session
 
-#### Task 5.5: UI Polish & Responsiveness (Day 4)
+#### Task 5.4: UI Polish & Responsiveness (Day 3)
 - [ ] Improve UI styling and layout:
   - [ ] Consistent visual design
   - [ ] Responsive layout for different popup sizes
@@ -995,7 +1024,7 @@ Additional outcome:
   - [ ] Smooth animations
   - [ ] Minimal UI blocking during operations
 
-#### Task 5.6: UI Testing & User Experience (Day 5)
+#### Task 5.5: UI Testing & User Experience (Day 4)
 - [ ] Test UI with various scenarios:
   - [ ] Large download queues
   - [ ] Error conditions
@@ -1019,17 +1048,17 @@ Additional outcome:
 - [ ] Test accessibility features (ARIA labels, keyboard nav)
 
 **Acceptance Test:**
-- [ ] **AC5.6.1**: UI remains responsive during large downloads
-- [ ] **AC5.6.2**: Progress indicators accurately reflect current status
-- [ ] **AC5.6.3**: Error messages are clear and actionable
-- [ ] **AC5.6.4**: All controls work as expected by users
-- [ ] **AC5.6.5**: UI is accessible to users with disabilities
-- [ ] **AC5.6.6**: Complete workflow can be performed intuitively
+- [ ] **AC5.5.1**: UI remains responsive during large downloads
+- [ ] **AC5.5.2**: Progress indicators accurately reflect current status
+- [ ] **AC5.5.3**: Error messages are clear and actionable
+- [ ] **AC5.5.4**: Completion notifications work correctly
+- [ ] **AC5.5.5**: UI is accessible to users with disabilities
+- [ ] **AC5.5.6**: Complete workflow can be performed intuitively
 
-### Phase 6: Testing & Polish (Week 7)
+### Phase 6: Testing & Polish (Week 6)
 
-**Duration**: 5 days  
-**Dependencies**: Phase 5 complete (UI fully implemented)  
+**Duration**: 5 days
+**Dependencies**: Phase 5 complete (UI enhancements implemented)
 **Deliverables**: Production-ready extension with comprehensive testing
 
 #### Task 6.1: Comprehensive Functionality Testing (Day 1-2)
@@ -1173,7 +1202,7 @@ Additional outcome:
 
 ---
 
-### Phase 7: Chrome Web Store Packaging & Submission (Week 8)
+### Phase 7: Chrome Web Store Packaging & Submission (Week 7)
 
 **Duration**: 5 days
 **Dependencies**: Phase 6 complete (production-ready extension)
