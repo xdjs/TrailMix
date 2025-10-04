@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Trail Mix",
   "version": "1.0.0",
-  "description": "Bulk download your paid Bandcamp purchases with metadata and artwork",
+  "description": "Pack light. Bring your whole Bandcamp collection.",
   "permissions": [
     "downloads",
     "cookies",
