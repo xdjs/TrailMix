@@ -5,13 +5,14 @@
   "scripts": {
     "test": "jest",
     "test:unit": "jest tests/unit",
-    "test:integration": "jest tests/integration", 
+    "test:integration": "jest tests/integration",
     "test:acceptance": "jest tests/acceptance",
     "test:coverage": "jest --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "build": "echo 'Build process will be defined later'",
-    "dev": "echo 'Development server will be defined later'"
+    "dev": "echo 'Development server will be defined later'",
+    "package": "node build-package.js"
   },
   "devDependencies": {
     "jest": "^29.0.0",
