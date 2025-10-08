@@ -121,10 +121,69 @@ describe('Utility Functions', () => {
         { input: '', expected: 'untitled' },
         { input: '   ', expected: 'untitled' }
       ];
-      
+
       testCases.forEach(({ input, expected }) => {
         expect(StringUtils.sanitizeFilename(input)).toBe(expected);
       });
+    });
+
+    test('should handle control characters', () => {
+      expect(StringUtils.sanitizeFilename('file\x00name')).toBe('file_name');
+      expect(StringUtils.sanitizeFilename('file\x01\x02\x03name')).toBe('file___name');
+      expect(StringUtils.sanitizeFilename('file\nnew\rline\ttab')).toBe('file_new_line_tab');
+    });
+
+    test('should handle Windows reserved names', () => {
+      expect(StringUtils.sanitizeFilename('CON')).toBe('_CON');
+      expect(StringUtils.sanitizeFilename('con')).toBe('_con');
+      expect(StringUtils.sanitizeFilename('PRN.txt')).toBe('_PRN.txt');
+      expect(StringUtils.sanitizeFilename('AUX')).toBe('_AUX');
+      expect(StringUtils.sanitizeFilename('NUL')).toBe('_NUL');
+      expect(StringUtils.sanitizeFilename('COM1')).toBe('_COM1');
+      expect(StringUtils.sanitizeFilename('COM9')).toBe('_COM9');
+      expect(StringUtils.sanitizeFilename('LPT1')).toBe('_LPT1');
+      expect(StringUtils.sanitizeFilename('LPT9')).toBe('_LPT9');
+      // Non-reserved names should pass through
+      expect(StringUtils.sanitizeFilename('CON2')).toBe('CON2');
+      expect(StringUtils.sanitizeFilename('ACON')).toBe('ACON');
+    });
+
+    test('should strip trailing dots and spaces', () => {
+      expect(StringUtils.sanitizeFilename('filename.')).toBe('filename');
+      expect(StringUtils.sanitizeFilename('filename..')).toBe('filename');
+      expect(StringUtils.sanitizeFilename('filename ')).toBe('filename');
+      expect(StringUtils.sanitizeFilename('filename  ')).toBe('filename');
+      expect(StringUtils.sanitizeFilename('filename. ')).toBe('filename');
+      expect(StringUtils.sanitizeFilename('filename . .')).toBe('filename');
+    });
+
+    test('should enforce maximum length', () => {
+      const longName = 'a'.repeat(300);
+      expect(StringUtils.sanitizeFilename(longName, 200)).toHaveLength(200);
+      expect(StringUtils.sanitizeFilename(longName, 50)).toHaveLength(50);
+    });
+
+    test('should handle edge cases', () => {
+      expect(StringUtils.sanitizeFilename(null)).toBe('untitled');
+      expect(StringUtils.sanitizeFilename(undefined)).toBe('untitled');
+      expect(StringUtils.sanitizeFilename(123)).toBe('untitled');
+      expect(StringUtils.sanitizeFilename('.')).toBe('untitled');
+      expect(StringUtils.sanitizeFilename('..')).toBe('untitled');
+      expect(StringUtils.sanitizeFilename('...')).toBe('untitled');
+    });
+
+    test('should sanitize paths while preserving structure', () => {
+      expect(StringUtils.sanitizePath('Artist/Album/Track')).toBe('Artist/Album/Track');
+      // Note: "AC/DC" becomes "AC/DC" because "/" is a path separator, not part of the name
+      // For artist names with slashes, the slash should be in the original metadata string
+      expect(StringUtils.sanitizePath('AC-DC/Album')).toBe('AC-DC/Album');
+      expect(StringUtils.sanitizePath('Artist:Name/Album:Title/Track')).toBe('Artist_Name/Album_Title/Track');
+      expect(StringUtils.sanitizePath('Artist/.../Album')).toBe('Artist/Album');
+      expect(StringUtils.sanitizePath('CON/PRN/file')).toBe('_CON/_PRN/file');
+      expect(StringUtils.sanitizePath('')).toBe('');
+      expect(StringUtils.sanitizePath(null)).toBe('');
+      // Test that invalid chars in path components are sanitized
+      expect(StringUtils.sanitizePath('Artist<>/Album*/Track?')).toBe('Artist__/Album_/Track_');
     });
     
     test('should clean text from DOM', () => {
