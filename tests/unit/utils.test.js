@@ -185,6 +185,47 @@ describe('Utility Functions', () => {
       // Test that invalid chars in path components are sanitized
       expect(StringUtils.sanitizePath('Artist<>/Album*/Track?')).toBe('Artist__/Album_/Track_');
     });
+
+    test('should remove zero-width characters', () => {
+      // Zero-width space (U+200B)
+      expect(StringUtils.sanitizeFilename('file\u200Bname')).toBe('filename');
+      // Zero-width non-joiner (U+200C)
+      expect(StringUtils.sanitizeFilename('file\u200Cname')).toBe('filename');
+      // Zero-width joiner (U+200D)
+      expect(StringUtils.sanitizeFilename('file\u200Dname')).toBe('filename');
+      // BOM / Zero-width no-break space (U+FEFF)
+      expect(StringUtils.sanitizeFilename('\uFEFFfilename')).toBe('filename');
+      // Word joiner (U+2060)
+      expect(StringUtils.sanitizeFilename('file\u2060name')).toBe('filename');
+      // Real-world example from logs: (​(​( 1 )​)​) contains U+200B
+      expect(StringUtils.sanitizeFilename('(\u200B(\u200B( 1 )\u200B)\u200B)')).toBe('((( 1 )))');
+    });
+
+    test('should preserve valid Unicode characters', () => {
+      // Japanese
+      expect(StringUtils.sanitizeFilename('夢の続き')).toBe('夢の続き');
+      // With tilde (common in album names)
+      expect(StringUtils.sanitizeFilename('夢の続き ~ Dreams Of Light ~')).toBe('夢の続き ~ Dreams Of Light ~');
+      // Cyrillic
+      expect(StringUtils.sanitizeFilename('Привет')).toBe('Привет');
+      // Arabic
+      expect(StringUtils.sanitizeFilename('مرحبا')).toBe('مرحبا');
+      // Emoji
+      expect(StringUtils.sanitizeFilename('Song 🎵 Title')).toBe('Song 🎵 Title');
+      // Accented characters
+      expect(StringUtils.sanitizeFilename('Café Münchën')).toBe('Café Münchën');
+    });
+
+    test('should normalize Unicode to NFC form', () => {
+      // é can be represented as single char (U+00E9) or e + combining acute (U+0065 U+0301)
+      const nfc = 'café'; // NFC form (composed)
+      const nfd = 'café'; // NFD form (decomposed) - e\u0301
+      // Both should normalize to the same string
+      const result1 = StringUtils.sanitizeFilename(nfc);
+      const result2 = StringUtils.sanitizeFilename(nfd);
+      expect(result1).toBe(result2);
+      expect(result1).toBe('café');
+    });
     
     test('should clean text from DOM', () => {
       const testCases = [
