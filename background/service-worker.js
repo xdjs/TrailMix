@@ -5,6 +5,7 @@
 
 // Service worker runs independently - no external imports needed
 // Import required modules
+importScripts('../lib/utils.js');
 importScripts('../lib/download-manager.js');
 importScripts('../lib/download-queue.js');
 importScripts('../lib/download-job.js');
@@ -123,9 +124,22 @@ try {
             }
           }
 
-          // Build path with metadata
-          target = `TrailMix/${artist}/${title}/${filename}`;
-          console.log('[TrailMix] Using metadata path:', target);
+          // Sanitize path components for cross-platform compatibility
+          const safeArtist = TrailMixUtils.StringUtils.sanitizeFolderName(artist);
+          const safeTitle = TrailMixUtils.StringUtils.sanitizeFolderName(title);
+          const safeFilename = TrailMixUtils.StringUtils.sanitizeFilename(filename);
+
+          // Build path with sanitized metadata
+          target = `TrailMix/${safeArtist}/${safeTitle}/${safeFilename}`;
+
+          // Log sanitization if changes were made
+          const originalPath = `TrailMix/${artist}/${title}/${filename}`;
+          if (target !== originalPath) {
+            console.log('[TrailMix] Sanitized path:', originalPath, '->', target);
+            broadcastLogMessage(`Sanitized filename: "${artist}/${title}" -> "${safeArtist}/${safeTitle}"`, 'warn');
+          } else {
+            console.log('[TrailMix] Using metadata path:', target);
+          }
 
           // Clean up the metadata now that we've used it
           downloadMetadata.delete(url);
@@ -144,12 +158,22 @@ try {
             }
           }
 
-          if (filename.startsWith('TrailMix/')) {
-            target = filename;
+          // Sanitize filename for safety
+          const safeFilename = TrailMixUtils.StringUtils.sanitizeFilename(filename);
+
+          if (safeFilename.startsWith('TrailMix/')) {
+            target = safeFilename;
           } else {
-            target = `TrailMix/${filename}`;
+            target = `TrailMix/${safeFilename}`;
           }
-          console.log('[TrailMix] Using fallback path (no metadata):', target);
+
+          // Log sanitization if changes were made
+          if (safeFilename !== filename) {
+            console.log('[TrailMix] Sanitized fallback path:', filename, '->', safeFilename);
+            broadcastLogMessage(`Sanitized filename: "${filename}" -> "${safeFilename}"`, 'warn');
+          } else {
+            console.log('[TrailMix] Using fallback path (no metadata):', target);
+          }
         }
 
         if (typeof suggest === 'function') {
@@ -158,6 +182,108 @@ try {
       } catch (e) {
         // Log minimally to aid diagnostics without interrupting downloads
         try { console.warn('[TrailMix] onDeterminingFilename error:', e && e.message ? e.message : String(e)); } catch(_) {}
+      }
+    });
+  }
+} catch (_) {
+  // Environment without downloads API (e.g., tests) — ignore
+}
+
+// Monitor download errors and provide user feedback
+try {
+  if (
+    typeof chrome !== 'undefined' &&
+    chrome.downloads &&
+    chrome.downloads.onChanged &&
+    typeof chrome.downloads.onChanged.addListener === 'function'
+  ) {
+    chrome.downloads.onChanged.addListener((downloadDelta) => {
+      // Only log errors for interrupted downloads
+      if (downloadDelta.state && downloadDelta.state.current === 'interrupted') {
+        // Get error details if available
+        if (downloadDelta.error) {
+          const errorReason = downloadDelta.error.current || 'unknown';
+          console.error('[TrailMix] Download interrupted:', downloadDelta.id, 'Reason:', errorReason);
+
+          // Provide user-friendly error messages
+          let userMessage = `Download failed (ID: ${downloadDelta.id})`;
+
+          // Map Chrome download error codes to user-friendly messages
+          switch (errorReason) {
+            case 'FILE_FAILED':
+              userMessage += ': File system error. Check disk space and permissions.';
+              break;
+            case 'FILE_ACCESS_DENIED':
+              userMessage += ': Access denied. Check file permissions.';
+              break;
+            case 'FILE_NO_SPACE':
+              userMessage += ': Insufficient disk space.';
+              break;
+            case 'FILE_NAME_TOO_LONG':
+              userMessage += ': Filename too long.';
+              break;
+            case 'FILE_TOO_LARGE':
+              userMessage += ': File too large for filesystem.';
+              break;
+            case 'FILE_VIRUS_INFECTED':
+              userMessage += ': File flagged by virus scanner.';
+              break;
+            case 'NETWORK_FAILED':
+              userMessage += ': Network error.';
+              break;
+            case 'NETWORK_TIMEOUT':
+              userMessage += ': Network timeout.';
+              break;
+            case 'NETWORK_DISCONNECTED':
+              userMessage += ': Network disconnected.';
+              break;
+            case 'NETWORK_SERVER_DOWN':
+              userMessage += ': Server unavailable.';
+              break;
+            case 'NETWORK_INVALID_REQUEST':
+              userMessage += ': Invalid request.';
+              break;
+            case 'SERVER_FAILED':
+              userMessage += ': Server error.';
+              break;
+            case 'SERVER_NO_RANGE':
+              userMessage += ': Server does not support resume.';
+              break;
+            case 'SERVER_BAD_CONTENT':
+              userMessage += ': Invalid content from server.';
+              break;
+            case 'SERVER_UNAUTHORIZED':
+              userMessage += ': Authorization required.';
+              break;
+            case 'SERVER_CERT_PROBLEM':
+              userMessage += ': Certificate error.';
+              break;
+            case 'SERVER_FORBIDDEN':
+              userMessage += ': Access forbidden.';
+              break;
+            case 'USER_CANCELED':
+              userMessage += ': Cancelled by user.';
+              break;
+            case 'USER_SHUTDOWN':
+              userMessage += ': Browser shutdown.';
+              break;
+            case 'CRASH':
+              userMessage += ': Browser crashed.';
+              break;
+            default:
+              userMessage += `: ${errorReason}`;
+          }
+
+          broadcastLogMessage(userMessage, 'error');
+        } else {
+          console.error('[TrailMix] Download interrupted:', downloadDelta.id, '(no error details)');
+          broadcastLogMessage(`Download failed (ID: ${downloadDelta.id}): Unknown error`, 'error');
+        }
+      }
+
+      // Also log when downloads complete successfully (for debugging)
+      if (downloadDelta.state && downloadDelta.state.current === 'complete') {
+        console.log('[TrailMix] Download completed successfully:', downloadDelta.id);
       }
     });
   }
