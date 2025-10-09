@@ -28,6 +28,9 @@ const chromeMock = {
   
   storage: {
     local: {
+      // In-memory store for test isolation
+      _store: {},
+      
       get: jest.fn((keys, callback) => {
         const mockData = {
           downloadLocation: '',
@@ -37,19 +40,62 @@ const chromeMock = {
           artworkEmbedding: true
         };
         
-        if (callback) {
-          setTimeout(() => callback(mockData), 0);
+        // If keys is provided, return only requested keys from store
+        if (keys) {
+          const keysArray = Array.isArray(keys) ? keys : [keys];
+          const result = {};
+          keysArray.forEach(key => {
+            if (key in chromeMock.storage.local._store) {
+              result[key] = chromeMock.storage.local._store[key];
+            } else if (key in mockData) {
+              result[key] = mockData[key];
+            }
+          });
+          
+          if (callback) {
+            setTimeout(() => callback(result), 0);
+          }
+          return Promise.resolve(result);
         }
-        return Promise.resolve(mockData);
+        
+        // Return all data if no keys specified
+        const allData = { ...mockData, ...chromeMock.storage.local._store };
+        if (callback) {
+          setTimeout(() => callback(allData), 0);
+        }
+        return Promise.resolve(allData);
       }),
+      
       set: jest.fn((data, callback) => {
+        // Store data in memory
+        Object.assign(chromeMock.storage.local._store, data);
+        
         if (callback) {
           setTimeout(() => callback(), 0);
         }
         return Promise.resolve();
       }),
-      remove: jest.fn(),
-      clear: jest.fn()
+      
+      remove: jest.fn((keys, callback) => {
+        const keysArray = Array.isArray(keys) ? keys : [keys];
+        keysArray.forEach(key => {
+          delete chromeMock.storage.local._store[key];
+        });
+        
+        if (callback) {
+          setTimeout(() => callback(), 0);
+        }
+        return Promise.resolve();
+      }),
+      
+      clear: jest.fn((callback) => {
+        chromeMock.storage.local._store = {};
+        
+        if (callback) {
+          setTimeout(() => callback(), 0);
+        }
+        return Promise.resolve();
+      })
     },
     sync: {
       get: jest.fn(),

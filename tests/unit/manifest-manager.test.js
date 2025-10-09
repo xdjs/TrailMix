@@ -7,6 +7,7 @@ const { ManifestManager } = require('../../lib/manifest-manager.js');
 describe('ManifestManager', () => {
   let manifestManager;
   let mockDownloads;
+  let mockStorage;
 
   beforeEach(() => {
     manifestManager = new ManifestManager();
@@ -17,8 +18,30 @@ describe('ManifestManager', () => {
       download: jest.fn()
     };
     
+    // Mock chrome.storage.local API with in-memory store
+    mockStorage = {
+      _store: {},
+      get: jest.fn((keys) => {
+        const keysArray = Array.isArray(keys) ? keys : [keys];
+        const result = {};
+        keysArray.forEach(key => {
+          if (key in mockStorage._store) {
+            result[key] = mockStorage._store[key];
+          }
+        });
+        return Promise.resolve(result);
+      }),
+      set: jest.fn((data) => {
+        Object.assign(mockStorage._store, data);
+        return Promise.resolve();
+      })
+    };
+    
     global.chrome = {
-      downloads: mockDownloads
+      downloads: mockDownloads,
+      storage: {
+        local: mockStorage
+      }
     };
     
     // Mock btoa and related functions for data URL encoding
@@ -41,73 +64,55 @@ describe('ManifestManager', () => {
       expect(manifestManager.isPending).toBe(false);
     });
 
-    it('should initialize with no existing manifest', async () => {
-      mockDownloads.search.mockResolvedValue([]);
-      
+    it('should initialize with no existing manifest in storage', async () => {
       await manifestManager.initialize();
       
       expect(manifestManager.isInitialized).toBe(true);
       expect(manifestManager.entries).toEqual([]);
-      expect(mockDownloads.search).toHaveBeenCalledWith({
-        query: ['TrailMix.json'],
-        orderBy: ['-startTime'],
-        limit: 1
-      });
+      expect(mockStorage.get).toHaveBeenCalledWith(['manifestEntries']);
     });
 
     it('should only initialize once', async () => {
-      mockDownloads.search.mockResolvedValue([]);
-      
       await manifestManager.initialize();
       await manifestManager.initialize();
       
-      expect(mockDownloads.search).toHaveBeenCalledTimes(1);
+      expect(mockStorage.get).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('readExistingManifest', () => {
-    it('should handle no existing manifest gracefully', async () => {
-      mockDownloads.search.mockResolvedValue([]);
+    it('should handle no existing manifest in storage gracefully', async () => {
+      await manifestManager.readExistingManifest();
+      
+      expect(manifestManager.entries).toEqual([]);
+      expect(mockStorage.get).toHaveBeenCalledWith(['manifestEntries']);
+    });
+
+    it('should handle storage read errors gracefully', async () => {
+      mockStorage.get.mockRejectedValue(new Error('Storage read failed'));
       
       await manifestManager.readExistingManifest();
       
       expect(manifestManager.entries).toEqual([]);
     });
 
-    it('should handle download with no filename', async () => {
-      mockDownloads.search.mockResolvedValue([
-        { id: 1 } // No filename
-      ]);
+    it('should load existing entries from storage', async () => {
+      const existingEntries = [
+        {
+          artist: 'Artist 1',
+          item_name: 'Album 1',
+          timestamp: '2025-01-01T00:00:00.000Z',
+          filePath: 'TrailMix/Artist 1/Album 1/file1.zip'
+        },
+        {
+          artist: 'Artist 2',
+          item_name: 'Album 2',
+          timestamp: '2025-01-02T00:00:00.000Z',
+          filePath: 'TrailMix/Artist 2/Album 2/file2.zip'
+        }
+      ];
       
-      await manifestManager.readExistingManifest();
-      
-      expect(manifestManager.entries).toEqual([]);
-    });
-
-    it('should handle file read errors gracefully', async () => {
-      mockDownloads.search.mockResolvedValue([
-        { id: 1, filename: '/path/to/TrailMix.json' }
-      ]);
-      
-      // Mock fetch to fail
-      global.fetch = jest.fn().mockRejectedValue(new Error('File not found'));
-      
-      await manifestManager.readExistingManifest();
-      
-      expect(manifestManager.entries).toEqual([]);
-    });
-
-    it('should parse existing JSONL content', async () => {
-      const existingContent = `{"artist":"Artist 1","item_name":"Album 1","timestamp":"2025-01-01T00:00:00.000Z","filePath":"TrailMix/Artist 1/Album 1/file1.zip"}
-{"artist":"Artist 2","item_name":"Album 2","timestamp":"2025-01-02T00:00:00.000Z","filePath":"TrailMix/Artist 2/Album 2/file2.zip"}`;
-      
-      mockDownloads.search.mockResolvedValue([
-        { id: 1, filename: '/path/to/TrailMix.json' }
-      ]);
-      
-      global.fetch = jest.fn().mockResolvedValue({
-        text: jest.fn().mockResolvedValue(existingContent)
-      });
+      mockStorage._store.manifestEntries = existingEntries;
       
       await manifestManager.readExistingManifest();
       
@@ -126,30 +131,17 @@ describe('ManifestManager', () => {
       });
     });
 
-    it('should skip invalid JSON lines', async () => {
-      const existingContent = `{"artist":"Artist 1","item_name":"Album 1","timestamp":"2025-01-01T00:00:00.000Z","filePath":"TrailMix/Artist 1/Album 1/file1.zip"}
-invalid json line
-{"artist":"Artist 2","item_name":"Album 2","timestamp":"2025-01-02T00:00:00.000Z","filePath":"TrailMix/Artist 2/Album 2/file2.zip"}`;
-      
-      mockDownloads.search.mockResolvedValue([
-        { id: 1, filename: '/path/to/TrailMix.json' }
-      ]);
-      
-      global.fetch = jest.fn().mockResolvedValue({
-        text: jest.fn().mockResolvedValue(existingContent)
-      });
+    it('should handle non-array storage data gracefully', async () => {
+      mockStorage._store.manifestEntries = "invalid data";
       
       await manifestManager.readExistingManifest();
       
-      expect(manifestManager.entries).toHaveLength(2);
-      expect(manifestManager.entries[0].artist).toBe('Artist 1');
-      expect(manifestManager.entries[1].artist).toBe('Artist 2');
+      expect(manifestManager.entries).toEqual([]);
     });
   });
 
   describe('appendEntry', () => {
     beforeEach(async () => {
-      mockDownloads.search.mockResolvedValue([]);
       mockDownloads.download.mockResolvedValue(123);
     });
 
@@ -169,6 +161,17 @@ invalid json line
         filePath: 'TrailMix/Test Artist/Test Album/file.zip'
       });
       
+      // Should save to storage
+      expect(mockStorage.set).toHaveBeenCalledWith({
+        manifestEntries: expect.arrayContaining([
+          expect.objectContaining({
+            artist: 'Test Artist',
+            item_name: 'Test Album'
+          })
+        ])
+      });
+      
+      // Should also export JSONL file
       expect(mockDownloads.download).toHaveBeenCalled();
     });
 
@@ -186,7 +189,7 @@ invalid json line
     });
 
     it('should not throw on write errors', async () => {
-      mockDownloads.download.mockRejectedValue(new Error('Write failed'));
+      mockStorage.set.mockRejectedValue(new Error('Storage write failed'));
       
       // Should not throw
       await expect(manifestManager.appendEntry(
@@ -199,6 +202,43 @@ invalid json line
       // Entry should still be added
       expect(manifestManager.entries).toHaveLength(1);
     });
+
+    it('should warn when approaching storage limit', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      
+      // Mark as initialized so appendEntry doesn't reset entries
+      manifestManager.isInitialized = true;
+      
+      // Create many large entries to exceed 9 MB
+      const largeEntry = {
+        artist: 'A'.repeat(2000),
+        item_name: 'B'.repeat(2000),
+        timestamp: '2025-10-09T12:00:00.000Z',
+        filePath: 'C'.repeat(2000)
+      };
+      
+      // Add enough entries to exceed 9 MB (9 * 1024 * 1024 = 9,437,184 bytes)
+      // Each entry is about 6000+ bytes, so we need about 1600 entries
+      for (let i = 0; i < 1600; i++) {
+        manifestManager.entries.push({ ...largeEntry, filePath: `${largeEntry.filePath}-${i}` });
+      }
+      
+      await manifestManager.appendEntry(
+        'Test Artist',
+        'Test Album',
+        '2025-10-09T12:00:00.000Z',
+        'TrailMix/Test Artist/Test Album/file.zip'
+      );
+      
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Storage usage is')
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('approaching 10 MB limit')
+      );
+      
+      consoleWarnSpy.mockRestore();
+    });
   });
 
   describe('writeManifest', () => {
@@ -206,7 +246,7 @@ invalid json line
       mockDownloads.download.mockResolvedValue(123);
     });
 
-    it('should generate JSONL content correctly', async () => {
+    it('should save to storage and generate JSONL export', async () => {
       manifestManager.entries = [
         {
           artist: 'Artist 1',
@@ -224,10 +264,13 @@ invalid json line
       
       await manifestManager.writeManifest();
       
-      // Verify btoa was called for base64 encoding
-      expect(global.btoa).toHaveBeenCalled();
+      // First should save to storage
+      expect(mockStorage.set).toHaveBeenCalledWith({
+        manifestEntries: manifestManager.entries
+      });
       
-      // Verify download was called with data URL
+      // Then should export JSONL file
+      expect(global.btoa).toHaveBeenCalled();
       expect(mockDownloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: expect.stringMatching(/^data:application\/jsonl;base64,/),
@@ -287,11 +330,12 @@ invalid json line
       
       await manifestManager.writeManifest();
       
+      expect(mockStorage.set).not.toHaveBeenCalled();
       expect(mockDownloads.download).not.toHaveBeenCalled();
     });
 
-    it('should not throw on download errors', async () => {
-      mockDownloads.download.mockRejectedValue(new Error('Download failed'));
+    it('should not throw on storage errors', async () => {
+      mockStorage.set.mockRejectedValue(new Error('Storage failed'));
       
       manifestManager.entries = [
         {
