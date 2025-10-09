@@ -148,13 +148,23 @@ describe('Utility Functions', () => {
       expect(StringUtils.sanitizeFilename('ACON')).toBe('ACON');
     });
 
-    test('should strip trailing dots and spaces', () => {
+    test('should strip trailing dots, spaces, and tildes', () => {
       expect(StringUtils.sanitizeFilename('filename.')).toBe('filename');
       expect(StringUtils.sanitizeFilename('filename..')).toBe('filename');
       expect(StringUtils.sanitizeFilename('filename ')).toBe('filename');
       expect(StringUtils.sanitizeFilename('filename  ')).toBe('filename');
       expect(StringUtils.sanitizeFilename('filename. ')).toBe('filename');
       expect(StringUtils.sanitizeFilename('filename . .')).toBe('filename');
+      // Trailing tildes (Chrome compatibility)
+      expect(StringUtils.sanitizeFilename('filename~')).toBe('filename');
+      expect(StringUtils.sanitizeFilename('filename~~')).toBe('filename');
+      expect(StringUtils.sanitizeFilename('filename ~')).toBe('filename');
+      expect(StringUtils.sanitizeFilename('filename~ ')).toBe('filename');
+      // Real-world case: Japanese album title with trailing tilde
+      expect(StringUtils.sanitizeFilename('夢の続き ~ Dreams Of Light ~')).toBe('夢の続き ~ Dreams Of Light');
+      // Tildes in the middle should be preserved
+      expect(StringUtils.sanitizeFilename('Track~1')).toBe('Track~1');
+      expect(StringUtils.sanitizeFilename('Album ~ Title')).toBe('Album ~ Title');
     });
 
     test('should enforce maximum length', () => {
@@ -204,8 +214,8 @@ describe('Utility Functions', () => {
     test('should preserve valid Unicode characters', () => {
       // Japanese
       expect(StringUtils.sanitizeFilename('夢の続き')).toBe('夢の続き');
-      // With tilde (common in album names)
-      expect(StringUtils.sanitizeFilename('夢の続き ~ Dreams Of Light ~')).toBe('夢の続き ~ Dreams Of Light ~');
+      // With tilde in the middle (common in album names)
+      expect(StringUtils.sanitizeFilename('夢の続き ~ Dreams Of Light')).toBe('夢の続き ~ Dreams Of Light');
       // Cyrillic
       expect(StringUtils.sanitizeFilename('Привет')).toBe('Привет');
       // Arabic
