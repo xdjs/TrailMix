@@ -240,6 +240,9 @@ describe('DownloadManager', () => {
     test('should handle download completion', async () => {
       const mockDownloadId = 456;
 
+      // Mock downloads.search for manifest recording
+      mockChrome.downloads.search = jest.fn().mockResolvedValue([]);
+
       // Get the listener that was registered
       const onChangedListener = mockChrome.downloads.onChanged.addListener.mock.calls[0]?.[0];
 
@@ -251,6 +254,10 @@ describe('DownloadManager', () => {
         downloadManager.activeDownload = {
           downloadId: mockDownloadId,
           purchaseItem: mockPurchaseItem,
+          metadata: {
+            artist: 'Test Artist',
+            title: 'Test Album'
+          },
           promise: {
             resolve: mockResolve,
             reject: mockReject
@@ -264,6 +271,9 @@ describe('DownloadManager', () => {
         };
 
         onChangedListener(completeDelta);
+
+        // Wait for async operations to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Should resolve the promise
         expect(mockResolve).toHaveBeenCalled();
@@ -350,6 +360,188 @@ describe('DownloadManager', () => {
       expect(mockChrome.tabs.sendMessage).toHaveBeenCalled();
       expect(mockChrome.downloads.download).toHaveBeenCalled();
       expect(mockChrome.tabs.remove).toHaveBeenCalled();
+    }, 15000);
+  });
+
+  describe('Manifest Recording', () => {
+    let mockManifestManager;
+
+    beforeEach(() => {
+      // Mock manifest manager
+      mockManifestManager = {
+        appendEntry: jest.fn().mockResolvedValue(undefined)
+      };
+      global.manifestManager = mockManifestManager;
+
+      // Mock downloads.search for getting final file path
+      mockChrome.downloads.search = jest.fn();
+    });
+
+    afterEach(() => {
+      delete global.manifestManager;
+    });
+
+    test('should record download in manifest on completion', async () => {
+      const mockTabId = 123;
+      const mockDownloadUrl = 'https://p4.bcbits.com/download/track/abc123';
+      const mockDownloadId = 456;
+
+      mockChrome.tabs.create.mockResolvedValue({ id: mockTabId });
+      mockChrome.downloads.download.mockResolvedValue(mockDownloadId);
+      mockChrome.tabs.remove.mockResolvedValue();
+
+      // Mock getting the final file path
+      mockChrome.downloads.search.mockResolvedValue([
+        {
+          id: mockDownloadId,
+          filename: '/Users/test/Downloads/TrailMix/Test Artist/Test Album/track.zip'
+        }
+      ]);
+
+      mockChrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        if (message.type === 'CHECK_DOWNLOAD_READY') {
+          callback({ ready: true, url: mockDownloadUrl });
+        }
+      });
+
+      // Start download
+      const downloadPromise = downloadManager.download(mockPurchaseItem);
+
+      // Wait for full download cycle
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Simulate download completion
+      downloadManager.handleDownloadChange({
+        id: mockDownloadId,
+        state: { current: 'complete' }
+      });
+
+      // Wait for promise to resolve
+      await downloadPromise;
+
+      // Verify manifest entry was created
+      expect(mockManifestManager.appendEntry).toHaveBeenCalledWith(
+        'Test Artist',
+        'Test Album',
+        expect.any(String), // timestamp
+        'TrailMix/Test Artist/Test Album/track.zip' // relative path
+      );
+    }, 15000);
+
+    test('should extract relative path correctly', async () => {
+      const mockTabId = 123;
+      const mockDownloadUrl = 'https://p4.bcbits.com/download/track/abc123';
+      const mockDownloadId = 456;
+
+      mockChrome.tabs.create.mockResolvedValue({ id: mockTabId });
+      mockChrome.downloads.download.mockResolvedValue(mockDownloadId);
+      mockChrome.tabs.remove.mockResolvedValue();
+
+      // Mock getting the final file path with full absolute path
+      mockChrome.downloads.search.mockResolvedValue([
+        {
+          id: mockDownloadId,
+          filename: '/Users/someone/Downloads/TrailMix/Artist/Album/file.zip'
+        }
+      ]);
+
+      mockChrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        if (message.type === 'CHECK_DOWNLOAD_READY') {
+          callback({ ready: true, url: mockDownloadUrl });
+        }
+      });
+
+      // Start download
+      const downloadPromise = downloadManager.download(mockPurchaseItem);
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      downloadManager.handleDownloadChange({
+        id: mockDownloadId,
+        state: { current: 'complete' }
+      });
+
+      await downloadPromise;
+
+      // Verify relative path extraction
+      const callArgs = mockManifestManager.appendEntry.mock.calls[0];
+      expect(callArgs[3]).toBe('TrailMix/Artist/Album/file.zip');
+    }, 15000);
+
+    test('should handle missing manifest manager gracefully', async () => {
+      delete global.manifestManager;
+
+      const mockTabId = 123;
+      const mockDownloadUrl = 'https://p4.bcbits.com/download/track/abc123';
+      const mockDownloadId = 456;
+
+      mockChrome.tabs.create.mockResolvedValue({ id: mockTabId });
+      mockChrome.downloads.download.mockResolvedValue(mockDownloadId);
+      mockChrome.tabs.remove.mockResolvedValue();
+
+      mockChrome.downloads.search.mockResolvedValue([
+        {
+          id: mockDownloadId,
+          filename: '/Users/test/Downloads/TrailMix/Test Artist/Test Album/track.zip'
+        }
+      ]);
+
+      mockChrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        if (message.type === 'CHECK_DOWNLOAD_READY') {
+          callback({ ready: true, url: mockDownloadUrl });
+        }
+      });
+
+      // Start download - should not throw even without manifest manager
+      const downloadPromise = downloadManager.download(mockPurchaseItem);
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      downloadManager.handleDownloadChange({
+        id: mockDownloadId,
+        state: { current: 'complete' }
+      });
+
+      // Should complete successfully
+      await expect(downloadPromise).resolves.toHaveProperty('success', true);
+    }, 15000);
+
+    test('should not crash if manifest recording fails', async () => {
+      mockManifestManager.appendEntry.mockRejectedValue(new Error('Manifest write failed'));
+
+      const mockTabId = 123;
+      const mockDownloadUrl = 'https://p4.bcbits.com/download/track/abc123';
+      const mockDownloadId = 456;
+
+      mockChrome.tabs.create.mockResolvedValue({ id: mockTabId });
+      mockChrome.downloads.download.mockResolvedValue(mockDownloadId);
+      mockChrome.tabs.remove.mockResolvedValue();
+
+      mockChrome.downloads.search.mockResolvedValue([
+        {
+          id: mockDownloadId,
+          filename: '/Users/test/Downloads/TrailMix/Test Artist/Test Album/track.zip'
+        }
+      ]);
+
+      mockChrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        if (message.type === 'CHECK_DOWNLOAD_READY') {
+          callback({ ready: true, url: mockDownloadUrl });
+        }
+      });
+
+      // Start download
+      const downloadPromise = downloadManager.download(mockPurchaseItem);
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      downloadManager.handleDownloadChange({
+        id: mockDownloadId,
+        state: { current: 'complete' }
+      });
+
+      // Download should still complete successfully despite manifest error
+      await expect(downloadPromise).resolves.toHaveProperty('success', true);
     }, 15000);
   });
 });

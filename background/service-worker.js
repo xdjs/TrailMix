@@ -9,6 +9,7 @@ importScripts('../lib/utils.js');
 importScripts('../lib/download-manager.js');
 importScripts('../lib/download-queue.js');
 importScripts('../lib/download-job.js');
+importScripts('../lib/manifest-manager.js');
 
 // Initialize global variables BEFORE any usage to avoid temporal dead zone
 // State for download management
@@ -86,6 +87,20 @@ try {
     chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
       try {
         const url = item && item.url ? item.url : '';
+        
+        // Check if this is a manifest file download
+        const metadata = downloadMetadata.get(url);
+        if (metadata && metadata.isManifest) {
+          // Route manifest to TrailMix root
+          const target = 'TrailMix/TrailMix.json';
+          console.log('[TrailMix] Routing manifest file to:', target);
+          downloadMetadata.delete(url);
+          if (typeof suggest === 'function') {
+            suggest({ filename: target, conflictAction: 'overwrite' });
+          }
+          return;
+        }
+
         // Only adjust Bandcamp CDN downloads
         const isBandcampCdn = (() => {
           try {
@@ -101,8 +116,7 @@ try {
           return;
         }
 
-        // Check if we have metadata for this download
-        const metadata = downloadMetadata.get(url);
+        // Check if we have metadata for this download (already loaded above)
 
         let target;
         if (metadata && metadata.artist && metadata.title) {
@@ -866,6 +880,14 @@ async function processNextDownload() {
       // Queue is empty, all downloads complete
       downloadState.isActive = false;
       console.log(`Queue is empty. All downloads complete: ${downloadState.completed} successful, ${downloadState.failed} failed`);
+      
+      // Finalize the manifest (deduplicate and write final version)
+      if (typeof manifestManager !== 'undefined') {
+        manifestManager.finalize().catch(error => {
+          console.error('Failed to finalize manifest:', error);
+        });
+      }
+      
       broadcastProgress();
       isProcessing = false;
       return;
