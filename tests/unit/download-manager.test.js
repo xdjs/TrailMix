@@ -424,7 +424,8 @@ describe('DownloadManager', () => {
         'Test Artist',
         'Test Album',
         expect.any(String), // timestamp
-        'TrailMix/Test Artist/Test Album/track.zip' // relative path
+        'TrailMix/Test Artist/Test Album/track.zip', // relative path
+        expect.any(Number) // downloadId
       );
     }, 15000);
 

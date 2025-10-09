@@ -370,21 +370,27 @@ describe('ManifestManager', () => {
           artist: 'Artist 1',
           item_name: 'Album 1',
           timestamp: '2025-01-01T00:00:00.000Z',
-          filePath: 'TrailMix/Artist 1/Album 1/file.zip'
+          filePath: 'TrailMix/Artist 1/Album 1/file.zip',
+          downloadId: 123
         },
         {
           artist: 'Artist 1',
           item_name: 'Album 1',
           timestamp: '2025-01-01T00:01:00.000Z',
-          filePath: 'TrailMix/Artist 1/Album 1/file.zip' // Duplicate
+          filePath: 'TrailMix/Artist 1/Album 1/file.zip', // Duplicate
+          downloadId: 124
         },
         {
           artist: 'Artist 2',
           item_name: 'Album 2',
           timestamp: '2025-01-02T00:00:00.000Z',
-          filePath: 'TrailMix/Artist 2/Album 2/file.zip'
+          filePath: 'TrailMix/Artist 2/Album 2/file.zip',
+          downloadId: 125
         }
       ];
+      
+      // Mock all downloads as existing
+      mockDownloads.search.mockResolvedValue([{ exists: true }]);
       
       await manifestManager.finalize();
       
@@ -399,9 +405,13 @@ describe('ManifestManager', () => {
           artist: 'Artist 1',
           item_name: 'Album 1',
           timestamp: '2025-01-01T00:00:00.000Z',
-          filePath: 'TrailMix/Artist 1/Album 1/file.zip'
+          filePath: 'TrailMix/Artist 1/Album 1/file.zip',
+          downloadId: 123
         }
       ];
+      
+      // Mock download as existing
+      mockDownloads.search.mockResolvedValue([{ exists: true }]);
       
       await manifestManager.finalize();
       
@@ -416,9 +426,13 @@ describe('ManifestManager', () => {
           artist: 'Artist 1',
           item_name: 'Album 1',
           timestamp: '2025-01-01T00:00:00.000Z',
-          filePath: 'TrailMix/Artist 1/Album 1/file.zip'
+          filePath: 'TrailMix/Artist 1/Album 1/file.zip',
+          downloadId: 123
         }
       ];
+      
+      // Mock download as existing
+      mockDownloads.search.mockResolvedValue([{ exists: true }]);
       
       await expect(manifestManager.finalize()).resolves.not.toThrow();
     });
@@ -468,6 +482,205 @@ describe('ManifestManager', () => {
       expect(manifestManager.entries).toEqual([]);
       expect(manifestManager.isPending).toBe(false);
       expect(manifestManager.isInitialized).toBe(false);
+    });
+  });
+
+  describe('isAlreadyDownloaded', () => {
+    beforeEach(() => {
+      manifestManager.isInitialized = true;
+    });
+
+    it('should match by artist and title', () => {
+      manifestManager.entries = [
+        { 
+          artist: 'Pink Floyd', 
+          item_name: 'The Wall', 
+          filePath: 'TrailMix/Pink Floyd/The Wall/album.zip',
+          timestamp: '2025-10-09T10:00:00.000Z'
+        }
+      ];
+      
+      expect(manifestManager.isAlreadyDownloaded({
+        artist: 'Pink Floyd',
+        title: 'The Wall'
+      })).toBe(true);
+    });
+    
+    it('should return false for new items', () => {
+      manifestManager.entries = [
+        { artist: 'Pink Floyd', item_name: 'The Wall', filePath: 'path.zip' }
+      ];
+      
+      expect(manifestManager.isAlreadyDownloaded({
+        artist: 'Pink Floyd',
+        title: 'Dark Side of the Moon'
+      })).toBe(false);
+    });
+    
+    it('should return false when artist matches but title differs', () => {
+      manifestManager.entries = [
+        { artist: 'AC/DC', item_name: 'Back in Black', filePath: 'path.zip' }
+      ];
+      
+      expect(manifestManager.isAlreadyDownloaded({
+        artist: 'AC/DC',
+        title: 'Highway to Hell'
+      })).toBe(false);
+    });
+    
+    it('should return false when title matches but artist differs', () => {
+      manifestManager.entries = [
+        { artist: 'The Beatles', item_name: 'Abbey Road', filePath: 'path.zip' }
+      ];
+      
+      expect(manifestManager.isAlreadyDownloaded({
+        artist: 'Pink Floyd',
+        title: 'Abbey Road'
+      })).toBe(false);
+    });
+    
+    it('should handle missing purchase data gracefully', () => {
+      manifestManager.entries = [
+        { artist: 'Test', item_name: 'Album', filePath: 'path.zip' }
+      ];
+      
+      expect(manifestManager.isAlreadyDownloaded(null)).toBe(false);
+      expect(manifestManager.isAlreadyDownloaded({})).toBe(false);
+      expect(manifestManager.isAlreadyDownloaded({ artist: 'Test' })).toBe(false);
+      expect(manifestManager.isAlreadyDownloaded({ title: 'Album' })).toBe(false);
+    });
+    
+    it('should match with multiple entries in manifest', () => {
+      manifestManager.entries = [
+        { artist: 'Artist 1', item_name: 'Album 1', filePath: 'path1.zip' },
+        { artist: 'Artist 2', item_name: 'Album 2', filePath: 'path2.zip' },
+        { artist: 'Artist 3', item_name: 'Album 3', filePath: 'path3.zip' }
+      ];
+      
+      expect(manifestManager.isAlreadyDownloaded({
+        artist: 'Artist 2',
+        title: 'Album 2'
+      })).toBe(true);
+    });
+
+    it('should match case-insensitively', () => {
+      manifestManager.entries = [
+        { 
+          artist: 'Moe Shop', 
+          item_name: 'Identity (w/ SEIJ)', 
+          filePath: 'TrailMix/Moe Shop/Identity/file.m4a',
+          timestamp: '2025-10-09T10:00:00.000Z'
+        }
+      ];
+      
+      // Should match even with different casing
+      expect(manifestManager.isAlreadyDownloaded({
+        artist: 'moe shop',
+        title: 'identity (w/ seij)'
+      })).toBe(true);
+      
+      expect(manifestManager.isAlreadyDownloaded({
+        artist: 'MOE SHOP',
+        title: 'IDENTITY (W/ SEIJ)'
+      })).toBe(true);
+      
+      expect(manifestManager.isAlreadyDownloaded({
+        artist: 'Moe Shop',
+        title: 'Identity (w/ SEIJ)'
+      })).toBe(true);
+    });
+  });
+
+  describe('validateEntries', () => {
+    beforeEach(() => {
+      manifestManager.isInitialized = true;
+      mockDownloads.search = jest.fn();
+    });
+
+    it('should keep entries with valid downloadId and exists=true', async () => {
+      manifestManager.entries = [
+        { 
+          artist: 'Artist 1', 
+          item_name: 'Album 1', 
+          filePath: 'path1.zip',
+          downloadId: 123
+        }
+      ];
+      
+      mockDownloads.search.mockResolvedValue([
+        { id: 123, exists: true, filename: 'path1.zip' }
+      ]);
+      
+      const removed = await manifestManager.validateEntries();
+      
+      expect(removed).toBe(0);
+      expect(manifestManager.entries).toHaveLength(1);
+      expect(mockDownloads.search).toHaveBeenCalledWith({ id: 123 });
+    });
+    
+    it('should remove entries where file no longer exists', async () => {
+      manifestManager.entries = [
+        { artist: 'Artist 1', item_name: 'Album 1', filePath: 'path1.zip', downloadId: 123 },
+        { artist: 'Artist 2', item_name: 'Album 2', filePath: 'path2.zip', downloadId: 456 }
+      ];
+      
+      mockDownloads.search
+        .mockResolvedValueOnce([{ id: 123, exists: false }])  // File deleted
+        .mockResolvedValueOnce([{ id: 456, exists: true }]);   // File exists
+      
+      const removed = await manifestManager.validateEntries();
+      
+      expect(removed).toBe(1);
+      expect(manifestManager.entries).toHaveLength(1);
+      expect(manifestManager.entries[0].artist).toBe('Artist 2');
+    });
+    
+    it('should remove entries where download record is gone', async () => {
+      manifestManager.entries = [
+        { artist: 'Artist 1', item_name: 'Album 1', filePath: 'path1.zip', downloadId: 999 }
+      ];
+      
+      mockDownloads.search.mockResolvedValue([]);  // No record found
+      
+      const removed = await manifestManager.validateEntries();
+      
+      expect(removed).toBe(1);
+      expect(manifestManager.entries).toHaveLength(0);
+    });
+    
+    it('should remove entries without downloadId (pre-validation entries)', async () => {
+      manifestManager.entries = [
+        { artist: 'Artist 1', item_name: 'Album 1', filePath: 'path1.zip' }  // No downloadId
+      ];
+      
+      const removed = await manifestManager.validateEntries();
+      
+      expect(removed).toBe(1);
+      expect(manifestManager.entries).toHaveLength(0);
+      expect(mockDownloads.search).not.toHaveBeenCalled();
+    });
+    
+    it('should save cleaned entries to storage', async () => {
+      manifestManager.entries = [
+        { artist: 'Artist 1', item_name: 'Album 1', downloadId: 123 }
+      ];
+      
+      mockDownloads.search.mockResolvedValue([{ exists: false }]);
+      
+      await manifestManager.validateEntries();
+      
+      expect(mockStorage.set).toHaveBeenCalledWith({
+        manifestEntries: []
+      });
+    });
+
+    it('should return 0 for empty entries', async () => {
+      manifestManager.entries = [];
+      
+      const removed = await manifestManager.validateEntries();
+      
+      expect(removed).toBe(0);
+      expect(mockDownloads.search).not.toHaveBeenCalled();
     });
   });
 });

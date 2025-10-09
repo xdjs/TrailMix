@@ -543,6 +543,27 @@ async function handleStartDownload(data, sendResponse) {
       purchases = discoveryResponse.purchases;
     }
 
+    // Filter out already-downloaded items
+    if (typeof manifestManager !== 'undefined') {
+      await manifestManager.initialize();
+      
+      const beforeCount = purchases.length;
+      purchases = purchases.filter(purchase => {
+        const isDuplicate = manifestManager.isAlreadyDownloaded(purchase);
+        if (isDuplicate) {
+          console.log(`[TrailMix] Skipping already downloaded: ${purchase.artist} - ${purchase.title}`);
+        }
+        return !isDuplicate;
+      });
+      
+      const skippedCount = beforeCount - purchases.length;
+      if (skippedCount > 0) {
+        const msg = `Skipped ${skippedCount} already-downloaded item${skippedCount > 1 ? 's' : ''}`;
+        console.log(`[TrailMix] ${msg}`);
+        broadcastLogMessage(msg, 'info');
+      }
+    }
+
     // Clear existing queue and reset state
     downloadQueue.clear();
     downloadQueue.isPaused = false;  // Explicitly reset pause state!
@@ -806,7 +827,28 @@ async function handleDiscoverAndStart(sendResponse) {
     }
 
     // Seed state similar to handleStartDownload
-    const purchases = Array.isArray(discoveryResponse.purchases) ? discoveryResponse.purchases : [];
+    let purchases = Array.isArray(discoveryResponse.purchases) ? discoveryResponse.purchases : [];
+
+    // Filter out already-downloaded items
+    if (typeof manifestManager !== 'undefined') {
+      await manifestManager.initialize();
+      
+      const beforeCount = purchases.length;
+      purchases = purchases.filter(purchase => {
+        const isDuplicate = manifestManager.isAlreadyDownloaded(purchase);
+        if (isDuplicate) {
+          console.log(`[TrailMix] Skipping already downloaded: ${purchase.artist} - ${purchase.title}`);
+        }
+        return !isDuplicate;
+      });
+      
+      const skippedCount = beforeCount - purchases.length;
+      if (skippedCount > 0) {
+        const msg = `Skipped ${skippedCount} already-downloaded item${skippedCount > 1 ? 's' : ''}`;
+        console.log(`[TrailMix] ${msg}`);
+        broadcastLogMessage(msg, 'info');
+      }
+    }
 
     // Clear existing queue and reset state
     downloadQueue.clear();

@@ -707,9 +707,28 @@ async function handleScrapePurchases(sendResponse) {
         const a = el.querySelector('a[data-tid="download"]');
         if (!a || !a.getAttribute('href')) continue; // downloadable-only
         const downloadUrl = toAbsolute(a.getAttribute('href'));
+        
+        // Extract title and artist from the purchase item
+        // Format: "<strong>TITLE</strong> by ARTIST" in .purchases-item-title
+        const titleEl = el.querySelector('.purchases-item-title');
+        const titleText = DOMUtils.getTextContent(titleEl) || '';
+        
+        // Parse "TITLE by ARTIST" format
+        let title = '';
+        let artist = '';
+        const byMatch = titleText.match(/^(.+?)\s+by\s+(.+)$/);
+        if (byMatch) {
+          title = byMatch[1].trim();
+          artist = byMatch[2].trim();
+        } else {
+          // Fallback: use whole text as title
+          title = titleText.trim();
+        }
+
+        
         purchases.push({
-          title: '',
-          artist: '',
+          title,
+          artist,
           url: '',
           artworkUrl: '',
           purchaseDate: '',
