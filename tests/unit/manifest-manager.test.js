@@ -325,13 +325,49 @@ describe('ManifestManager', () => {
       );
     });
 
-    it('should skip write if already pending', async () => {
+    it('should queue rewrite if already pending', async () => {
       manifestManager.isPending = true;
       
       await manifestManager.writeManifest();
       
+      // Should not write immediately, but should flag for rewrite
       expect(mockStorage.set).not.toHaveBeenCalled();
       expect(mockDownloads.download).not.toHaveBeenCalled();
+      expect(manifestManager.needsRewrite).toBe(true);
+    });
+
+    it('should handle race condition by rewriting', async () => {
+      manifestManager.entries = [
+        {
+          artist: 'Artist 1',
+          item_name: 'Album 1',
+          timestamp: '2025-01-01T00:00:00.000Z',
+          filePath: 'TrailMix/Artist 1/Album 1/file1.zip'
+        }
+      ];
+      
+      let writeCount = 0;
+      mockStorage.set.mockImplementation(async () => {
+        writeCount++;
+        // Simulate another append happening during the first write
+        if (writeCount === 1) {
+          manifestManager.needsRewrite = true;
+          manifestManager.entries.push({
+            artist: 'Artist 2',
+            item_name: 'Album 2',
+            timestamp: '2025-01-02T00:00:00.000Z',
+            filePath: 'TrailMix/Artist 2/Album 2/file2.zip'
+          });
+        }
+      });
+      
+      await manifestManager.writeManifest();
+      
+      // Should have written twice due to needsRewrite flag
+      expect(mockStorage.set).toHaveBeenCalledTimes(2);
+      expect(mockDownloads.download).toHaveBeenCalledTimes(2);
+      expect(manifestManager.needsRewrite).toBe(false);
+      expect(manifestManager.isPending).toBe(false);
     });
 
     it('should not throw on storage errors', async () => {
@@ -475,12 +511,14 @@ describe('ManifestManager', () => {
     it('should reset all state', () => {
       manifestManager.entries = [{ artist: 'Test' }];
       manifestManager.isPending = true;
+      manifestManager.needsRewrite = true;
       manifestManager.isInitialized = true;
       
       manifestManager.reset();
       
       expect(manifestManager.entries).toEqual([]);
       expect(manifestManager.isPending).toBe(false);
+      expect(manifestManager.needsRewrite).toBe(false);
       expect(manifestManager.isInitialized).toBe(false);
     });
   });
