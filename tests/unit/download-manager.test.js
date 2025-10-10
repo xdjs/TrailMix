@@ -28,6 +28,11 @@ const mockChrome = {
 // Set up global chrome mock
 global.chrome = mockChrome;
 
+// Mock manifestManager
+global.manifestManager = {
+  appendEntry: jest.fn(() => Promise.resolve())
+};
+
 // Import after setting up mocks
 const DownloadManager = require('../../lib/download-manager.js');
 
@@ -250,7 +255,12 @@ describe('DownloadManager', () => {
 
         downloadManager.activeDownload = {
           downloadId: mockDownloadId,
+          downloadUrl: 'https://p4.bcbits.com/test.zip',
           purchaseItem: mockPurchaseItem,
+          metadata: {
+            artist: 'Test Artist',
+            title: 'Test Album'
+          },
           promise: {
             resolve: mockResolve,
             reject: mockReject
@@ -265,11 +275,63 @@ describe('DownloadManager', () => {
 
         onChangedListener(completeDelta);
 
+        // Wait for async completion
+        await new Promise(resolve => setTimeout(resolve, 150));
+
         // Should resolve the promise
         expect(mockResolve).toHaveBeenCalled();
 
         // Should clear active download
         expect(downloadManager.activeDownload).toBeNull();
+      }
+    });
+
+    test('should record download in manifest on completion', async () => {
+      const mockDownloadId = 456;
+
+      // Get the listener that was registered
+      const onChangedListener = mockChrome.downloads.onChanged.addListener.mock.calls[0]?.[0];
+
+      if (onChangedListener) {
+        // Clear previous calls
+        jest.clearAllMocks();
+
+        // Simulate download with active download and metadata
+        const mockResolve = jest.fn();
+        const mockReject = jest.fn();
+
+        downloadManager.activeDownload = {
+          downloadId: mockDownloadId,
+          downloadUrl: 'https://p4.bcbits.com/test.zip',
+          purchaseItem: mockPurchaseItem,
+          metadata: {
+            artist: 'Test Artist',
+            title: 'Test Album'
+          },
+          promise: {
+            resolve: mockResolve,
+            reject: mockReject
+          }
+        };
+
+        // Simulate completion
+        const completeDelta = {
+          id: mockDownloadId,
+          state: { current: 'complete' }
+        };
+
+        onChangedListener(completeDelta);
+
+        // Wait for async operations (including the 100ms delay)
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        // Should have called manifestManager.appendEntry
+        expect(global.manifestManager.appendEntry).toHaveBeenCalledWith(
+          'Test Artist',
+          'Test Album',
+          expect.any(String), // timestamp
+          expect.stringMatching(/^TrailMix\/Test Artist\/Test Album\//)
+        );
       }
     });
 

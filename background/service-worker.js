@@ -9,6 +9,7 @@ importScripts('../lib/utils.js');
 importScripts('../lib/download-manager.js');
 importScripts('../lib/download-queue.js');
 importScripts('../lib/download-job.js');
+importScripts('../lib/manifest-manager.js');
 
 // Initialize global variables BEFORE any usage to avoid temporal dead zone
 // State for download management
@@ -86,6 +87,16 @@ try {
     chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
       try {
         const url = item && item.url ? item.url : '';
+        
+        // Check if this is a TrailMix manifest download
+        if (url.includes('#trailmix-manifest')) {
+          console.log('[TrailMix] Detected manifest download, setting filename');
+          if (typeof suggest === 'function') {
+            suggest({ filename: 'TrailMix/TrailMix.json', conflictAction: 'overwrite' });
+          }
+          return;
+        }
+        
         // Only adjust Bandcamp CDN downloads
         const isBandcampCdn = (() => {
           try {
@@ -141,8 +152,12 @@ try {
             console.log('[TrailMix] Using metadata path:', target);
           }
 
-          // Clean up the metadata now that we've used it
-          downloadMetadata.delete(url);
+          // Store the determined filename back into metadata for manifest recording
+          downloadMetadata.set(url, {
+            artist: metadata.artist,
+            title: metadata.title,
+            actualFilePath: target
+          });
         } else {
           // No metadata - just use TrailMix/filename
           const suggestedRaw = (item && item.filename) ? String(item.filename) : '';
@@ -500,6 +515,11 @@ async function handleStartDownload(data, sendResponse) {
       downloadState.isPaused = false;
       downloadState.isActive = true;
 
+      // Initialize manifest at batch start
+      if (typeof manifestManager !== 'undefined') {
+        await manifestManager.initialize();
+      }
+
       // Log resume
       const nextPosition = downloadState.completed + 1;
       const total = downloadState.purchases.length;
@@ -538,6 +558,11 @@ async function handleStartDownload(data, sendResponse) {
     downloadState.currentIndex = 0;
     downloadState.completed = 0;
     downloadState.failed = 0;
+
+    // Initialize manifest at batch start
+    if (typeof manifestManager !== 'undefined') {
+      await manifestManager.initialize();
+    }
 
     // Diagnostics summary
     try {
@@ -804,6 +829,11 @@ async function handleDiscoverAndStart(sendResponse) {
     downloadState.completed = 0;
     downloadState.failed = 0;
 
+    // Initialize manifest at batch start
+    if (typeof manifestManager !== 'undefined') {
+      await manifestManager.initialize();
+    }
+
     try {
       const total = purchases.length;
       const withDirectUrl = purchases.filter(p => p && typeof p.downloadUrl === 'string' && p.downloadUrl.startsWith('http')).length;
@@ -866,6 +896,17 @@ async function processNextDownload() {
       // Queue is empty, all downloads complete
       downloadState.isActive = false;
       console.log(`Queue is empty. All downloads complete: ${downloadState.completed} successful, ${downloadState.failed} failed`);
+      
+      // Finalize manifest: dedupe, export, and clear storage
+      if (typeof manifestManager !== 'undefined') {
+        try {
+          await manifestManager.finalize();
+          console.log('[TrailMix] Manifest finalized and storage cleared');
+        } catch (error) {
+          console.error('[TrailMix] Failed to finalize manifest:', error);
+        }
+      }
+      
       broadcastProgress();
       isProcessing = false;
       return;
