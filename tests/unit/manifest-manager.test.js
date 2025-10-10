@@ -110,13 +110,18 @@ describe('ManifestManager', () => {
       });
     });
 
-    test('should NOT export to file after appending (only at finalization)', async () => {
+    test('should export to file after appending', async () => {
       const downloadCallsBefore = chrome.downloads.download.mock.calls.length;
       
       await manager.appendEntry('Test Artist', 'Test Album', '2025-10-10T12:00:00.000Z', 'TrailMix/Test Artist/Test Album/file.zip');
 
       const downloadCallsAfter = chrome.downloads.download.mock.calls.length;
-      expect(downloadCallsAfter).toBe(downloadCallsBefore); // No new download calls
+      expect(downloadCallsAfter).toBe(downloadCallsBefore + 1); // One new download call for export
+      
+      // Verify it was a manifest export (has the fragment)
+      const lastCall = chrome.downloads.download.mock.calls[chrome.downloads.download.mock.calls.length - 1][0];
+      expect(lastCall.url).toMatch(/#trailmix-manifest$/);
+      expect(lastCall.conflictAction).toBe('overwrite');
     });
 
     test('should append multiple entries', async () => {
@@ -137,10 +142,8 @@ describe('ManifestManager', () => {
       await manager.appendEntry('Artist 1', 'Album 1', '2025-01-01T00:00:00.000Z', 'TrailMix/Artist 1/Album 1/file.zip');
       await manager.appendEntry('Artist 2', 'Album 2', '2025-01-02T00:00:00.000Z', 'TrailMix/Artist 2/Album 2/file.zip');
 
-      // Manually trigger export (normally happens at finalization)
-      await manager.exportToFile();
-
-      // Get the download call
+      // exportToFile is called automatically after each appendEntry
+      // Get the last download call (should have both entries)
       const downloadCall = chrome.downloads.download.mock.calls[chrome.downloads.download.mock.calls.length - 1][0];
       
       // Should be a data URL with proper format and manifest marker
