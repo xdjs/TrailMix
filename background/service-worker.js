@@ -661,6 +661,13 @@ function handleStopDownload(sendResponse) {
   downloadState.failed = 0;
   currentDownloadJob = null;
 
+  // Clear manifest storage since we're resetting
+  if (typeof manifestManager !== 'undefined') {
+    manifestManager.reset().catch(err => {
+      console.error('[TrailMix] Failed to reset manifest:', err);
+    });
+  }
+
   // Log cancellation
   broadcastLogMessage('All downloads cancelled', 'warning');
 
