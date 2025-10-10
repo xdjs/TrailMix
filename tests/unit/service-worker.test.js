@@ -7,6 +7,62 @@
 const chromeMock = require('../mocks/chrome-mock');
 global.chrome = chromeMock;
 
+// Mock DownloadQueue
+global.DownloadQueue = class MockDownloadQueue {
+  constructor() {
+    this.items = [];
+    this.isPaused = false;
+  }
+  enqueue() {}
+  enqueueBatch() {}
+  dequeue() { return null; }
+  clear() { this.items = []; }
+  pause() { this.isPaused = true; }
+  resume() { this.isPaused = false; }
+  isEmpty() { return this.items.length === 0; }
+  getStats() { return { total: this.items.length }; }
+  serialize() { return {}; }
+  deserialize() {}
+  addEventListener() {} // Event listener for queue events
+};
+
+// Mock DownloadJob
+global.DownloadJob = class MockDownloadJob {
+  constructor(purchase, priority) {
+    this.purchase = purchase;
+    this.priority = priority;
+    this.status = 'pending';
+  }
+  static STATUS = {
+    PENDING: 'pending',
+    IN_PROGRESS: 'in_progress',
+    COMPLETED: 'completed',
+    FAILED: 'failed'
+  };
+  static deserialize(data) { return new MockDownloadJob(data.purchase, data.priority); }
+};
+
+// Mock DownloadManager
+global.DownloadManager = class MockDownloadManager {
+  constructor() {
+    this.activeDownload = null;
+  }
+  startDownload() {}
+  cancel() {}
+  cleanup() {}
+};
+
+// Mock manifestManager
+const mockManifestManager = {
+  initialize: jest.fn().mockResolvedValue(undefined),
+  appendEntry: jest.fn().mockResolvedValue(undefined),
+  exportToFile: jest.fn().mockResolvedValue(undefined),
+  finalize: jest.fn().mockResolvedValue(undefined),
+  reset: jest.fn().mockResolvedValue(undefined),
+  entries: []
+};
+global.manifestManager = mockManifestManager;
+
 describe('Service Worker', () => {
   let serviceWorker;
 
@@ -20,6 +76,13 @@ describe('Service Worker', () => {
     chrome.runtime.onMessage.addListener.mockClear();
     chrome.storage.local.set.mockClear();
     chrome.storage.local.get.mockClear();
+
+    // Reset manifestManager mocks
+    mockManifestManager.initialize.mockClear();
+    mockManifestManager.appendEntry.mockClear();
+    mockManifestManager.exportToFile.mockClear();
+    mockManifestManager.finalize.mockClear();
+    mockManifestManager.reset.mockClear();
 
     // Load the service worker module fresh
     delete require.cache[require.resolve('../../background/service-worker.js')];
@@ -187,6 +250,23 @@ describe('Service Worker', () => {
 
       expect(result).toBe(true);
       expect(mockSendResponse).toHaveBeenCalledWith({ status: 'stopped' });
+    });
+
+    test('should reset manifest on STOP_DOWNLOAD', () => {
+      if (!messageHandler) {
+        console.warn('Message handler not registered - skipping test');
+        return;
+      }
+      const mockSendResponse = jest.fn();
+
+      messageHandler(
+        { type: 'STOP_DOWNLOAD' },
+        { tab: { id: 1 } },
+        mockSendResponse
+      );
+
+      // Verify manifestManager.reset() was called
+      expect(mockManifestManager.reset).toHaveBeenCalled();
     });
 
     test('should handle unknown message types', () => {
