@@ -209,6 +209,9 @@ async function handleStartDownload() {
     showDiscoveryView();
     addLogEntry('Discovering purchases...');
 
+    // Reset completion guard for new session
+    completionLogged = false;
+
     // Single-step flow: discovery and start handled entirely by background
     const response = await sendMessageToBackground({ type: 'DISCOVER_AND_START' });
     console.log('DISCOVER_AND_START response:', response);
@@ -346,6 +349,9 @@ function sendMessageToBackground(message) {
 let lastLogMessage = null;
 let lastLogTimestamp = 0;
 
+// Guard to prevent duplicate completion messages
+let completionLogged = false;
+
 function addLogEntry(message, type = 'info') {
   const now = Date.now();
 
@@ -391,11 +397,14 @@ function updateProgress(stats) {
       elements.stopBtn.style.display = 'none';
       updateStartButtonVisibility(true, false);
 
-      const failed = stats.failed || 0;
-      if (failed > 0) {
-        addLogEntry(`Downloads complete: ${stats.completed} succeeded, ${failed} failed`, 'warning');
-      } else {
-        addLogEntry(`All ${stats.completed} downloads complete!`, 'success');
+      if (!completionLogged) {
+        completionLogged = true;
+        const failed = stats.failed || 0;
+        if (failed > 0) {
+          addLogEntry(`Downloads complete: ${stats.completed} succeeded, ${failed} failed`, 'warning');
+        } else {
+          addLogEntry(`All ${stats.completed} downloads complete!`, 'success');
+        }
       }
       return;
     }

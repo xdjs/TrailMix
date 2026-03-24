@@ -770,6 +770,11 @@ async function discoverCollectionItems() {
       }
 
       console.log(`[TrailMix] Page ${pageNum}: got ${data.items ? data.items.length : 0} items, more_available=${moreAvailable}`);
+
+      // Small delay between pages to avoid rate limiting
+      if (moreAvailable) {
+        await new Promise(r => setTimeout(r, 100));
+      }
     }
 
     console.log(`[TrailMix] Collection discovery complete: ${allItems.length} items, ${Object.keys(allRedownloadUrls).length} download URLs`);
@@ -777,6 +782,8 @@ async function discoverCollectionItems() {
     // Step 4: Join items with their download URLs
     const purchases = [];
     for (const item of allItems) {
+      // redownload_urls are keyed by sale_item_type prefix + sale_item_id
+      // Known types: p=purchase, s=subscription, i=invitation, r=reseller
       const saleItemKey = (item.sale_item_type || 'p') + item.sale_item_id;
       const downloadUrl = allRedownloadUrls[saleItemKey];
 
