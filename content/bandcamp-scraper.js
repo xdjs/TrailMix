@@ -859,6 +859,19 @@ async function handleCheckDownloadReady(sendResponse) {
           preparing: true
         });
       } else {
+        // Check if the download has expired
+        const pageText = document.body ? (document.body.textContent || '') : '';
+        if (pageText.includes('Download expired')) {
+          console.log('Download expired detected');
+          sendResponse({
+            ready: false,
+            expired: true,
+            error: 'Download expired',
+            metadata: { artist, title }
+          });
+          return;
+        }
+
         // Look for any visible download link with different selectors
         const alternativeSelectors = [
           'a[data-bind*="downloadUrl"]',

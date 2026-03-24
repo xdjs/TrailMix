@@ -540,8 +540,8 @@ async function handleStartDownload(data, sendResponse) {
       // Accept nested payload shape as well
       purchases = data.data.purchases;
     } else {
-      // Fallback: discover purchases
-      const discoveryResponse = await discoverPurchases();
+      // Fallback: discover collection items via API
+      const discoveryResponse = await discoverCollectionItems();
       if (!discoveryResponse.success) {
         sendResponse({ status: 'failed', error: discoveryResponse.error });
         return;
@@ -687,7 +687,131 @@ async function handleDiscoverPurchases(sendResponse) {
   }
 }
 
-// Discover purchases by communicating with content script
+// Discover collection items via Bandcamp's collection API
+// This replaces the old DOM-scraping approach with direct API calls
+async function discoverCollectionItems() {
+  try {
+    // Step 1: Get all bandcamp.com cookies for authenticated API requests
+    const cookies = await chrome.cookies.getAll({ domain: '.bandcamp.com' });
+    if (!cookies || cookies.length === 0) {
+      return { success: false, error: 'Not logged in to Bandcamp (no cookies found)' };
+    }
+    const cookieHeader = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+
+    // Step 2: Get fan_id from collection_summary API
+    const summaryResponse = await fetch('https://bandcamp.com/api/fan/2/collection_summary', {
+      method: 'GET',
+      headers: { 'Cookie': cookieHeader }
+    });
+
+    if (!summaryResponse.ok) {
+      return { success: false, error: `Failed to get fan info (HTTP ${summaryResponse.status})` };
+    }
+
+    const summaryData = await summaryResponse.json();
+    const fanId = summaryData.fan_id;
+
+    if (!fanId) {
+      return { success: false, error: 'Not logged in to Bandcamp (no fan_id in API response)' };
+    }
+
+    console.log(`[TrailMix] Starting collection discovery for fan_id=${fanId}`);
+
+    // Step 3: Paginate through the collection API
+    let allItems = [];
+    let allRedownloadUrls = {};
+    let olderThanToken = '9999999999::a::';
+    let moreAvailable = true;
+    let pageNum = 0;
+
+    while (moreAvailable) {
+      pageNum++;
+
+      // Check if discovery was cancelled
+      if (discoveryCancelled) {
+        console.log('[TrailMix] Collection discovery cancelled during pagination');
+        return { success: false, error: 'Discovery cancelled' };
+      }
+
+      console.log(`[TrailMix] Fetching collection page ${pageNum} (token: ${olderThanToken})`);
+
+      const response = await fetch('https://bandcamp.com/api/fancollection/1/collection_items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': cookieHeader
+        },
+        body: JSON.stringify({
+          fan_id: fanId,
+          older_than_token: olderThanToken,
+          count: 100
+        })
+      });
+
+      if (!response.ok) {
+        return { success: false, error: `Collection API returned HTTP ${response.status}` };
+      }
+
+      const data = await response.json();
+
+      if (data.items && Array.isArray(data.items)) {
+        allItems = allItems.concat(data.items);
+      }
+
+      if (data.redownload_urls && typeof data.redownload_urls === 'object') {
+        Object.assign(allRedownloadUrls, data.redownload_urls);
+      }
+
+      moreAvailable = !!data.more_available;
+      if (moreAvailable && data.last_token) {
+        olderThanToken = data.last_token;
+      } else {
+        moreAvailable = false;
+      }
+
+      console.log(`[TrailMix] Page ${pageNum}: got ${data.items ? data.items.length : 0} items, more_available=${moreAvailable}`);
+
+      // Small delay between pages to avoid rate limiting
+      if (moreAvailable) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+
+    console.log(`[TrailMix] Collection discovery complete: ${allItems.length} items, ${Object.keys(allRedownloadUrls).length} download URLs`);
+
+    // Step 4: Join items with their download URLs
+    const purchases = [];
+    for (const item of allItems) {
+      // redownload_urls are keyed by sale_item_type prefix + sale_item_id
+      // Known types: p=purchase, s=subscription, i=invitation, r=reseller
+      const saleItemKey = (item.sale_item_type || 'p') + item.sale_item_id;
+      const downloadUrl = allRedownloadUrls[saleItemKey];
+
+      if (!downloadUrl) {
+        console.log(`[TrailMix] Skipping item "${item.item_title}" by ${item.band_name} - no download URL`);
+        continue;
+      }
+
+      purchases.push({
+        title: item.item_title || '',
+        artist: item.band_name || '',
+        downloadUrl: downloadUrl,
+        url: item.item_url || '',
+        artworkUrl: '',
+        purchaseDate: item.purchased || '',
+        itemType: item.tralbum_type || ''
+      });
+    }
+
+    return { success: true, purchases, totalCount: purchases.length };
+
+  } catch (error) {
+    console.error('[TrailMix] Error in discoverCollectionItems:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Legacy: Discover purchases by communicating with content script (replaced by discoverCollectionItems)
 async function discoverPurchases() {
   try {
     // Find or create a Bandcamp tab
@@ -798,12 +922,12 @@ async function handleDiscoverAndStart(sendResponse) {
     // Reset cancellation flag at the start of discovery
     discoveryCancelled = false;
 
-    const discoveryResponse = await discoverPurchases();
+    const discoveryResponse = await discoverCollectionItems();
 
     // Check if discovery was cancelled during the process
     if (discoveryCancelled) {
       console.log('Discovery was cancelled, aborting DISCOVER_AND_START');
-      broadcastLogMessage('Purchase discovery cancelled', 'warning');
+      broadcastLogMessage('Collection discovery cancelled', 'warning');
       sendResponse({ status: 'cancelled' });
       return;
     }
