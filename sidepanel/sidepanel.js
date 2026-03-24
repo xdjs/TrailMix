@@ -384,6 +384,22 @@ function updateProgress(stats) {
       elements.currentItem.querySelector('.current-track').textContent = stats.currentTrack;
     }
 
+    // Check if downloads are complete (queue empty, not active, not paused)
+    if (!stats.isActive && !stats.isPaused && stats.active === 0) {
+      // All done — reset UI to start state
+      elements.pauseBtn.style.display = 'none';
+      elements.stopBtn.style.display = 'none';
+      updateStartButtonVisibility(true, false);
+
+      const failed = stats.failed || 0;
+      if (failed > 0) {
+        addLogEntry(`Downloads complete: ${stats.completed} succeeded, ${failed} failed`, 'warning');
+      } else {
+        addLogEntry(`All ${stats.completed} downloads complete!`, 'success');
+      }
+      return;
+    }
+
     // Update pause button state based on queue status
     if (typeof stats.isPaused === 'boolean' && elements.pauseBtn) {
       if (stats.isPaused) {
