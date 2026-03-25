@@ -50,6 +50,9 @@ async function initializePopup() {
     clearLogBtn: document.getElementById('clearLogBtn')
   };
 
+  // Set version from manifest
+  document.getElementById('version').textContent = 'v' + chrome.runtime.getManifest().version;
+
   // Set up event listeners
   setupEventListeners();
 
