@@ -43,6 +43,13 @@ let globalDownloadManager = null;
 // Current download job being processed
 let currentDownloadJob = null;
 
+// Module-level promise tracking queue restoration.
+// Handlers that read queue/downloadState must `await restoreReady` first —
+// otherwise a Resume message arriving before storage.get resolves sees an
+// empty queue and triggers a fresh discovery that wipes completion state
+// and re-downloads every already-downloaded album.
+let restoreReady;
+
 // Extension lifecycle management
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
@@ -57,7 +64,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   } else if (details.reason === 'update') {
     // Extension updated from previousVersion
     // Restore queue state after update
-    restoreQueueState();
+    restoreReady = restoreQueueState();
 
     // Ensure side panel behavior is set after update
     if (chrome.sidePanel?.setPanelBehavior) {
@@ -70,11 +77,11 @@ chrome.runtime.onInstalled.addListener((details) => {
 // Register startup listener
 chrome.runtime.onStartup.addListener(() => {
   // Extension starting up - restore persisted queue
-  restoreQueueState();
+  restoreReady = restoreQueueState();
 });
 
 // Also restore on service worker initialization (for refresh/reload)
-restoreQueueState();
+restoreReady = restoreQueueState();
 
 // Ensure all Bandcamp downloads are placed under a TrailMix subfolder
 try {
@@ -374,6 +381,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Status handler
 async function handleGetStatus(sendResponse) {
   try {
+    await restoreReady;
     const settings = await chrome.storage.local.get();
     const queueStats = downloadQueue.getStats();
 
@@ -502,6 +510,7 @@ async function restoreQueueState() {
 // Download handlers
 async function handleStartDownload(data, sendResponse) {
   try {
+    await restoreReady;
     // Check if we have an existing queue to resume (either paused or just restored from storage)
     if (!downloadQueue.isEmpty()) {
       const queueStats = downloadQueue.getStats();
@@ -597,7 +606,8 @@ async function handleStartDownload(data, sendResponse) {
   }
 }
 
-function handlePauseDownload(sendResponse) {
+async function handlePauseDownload(sendResponse) {
+  await restoreReady;
   // Cancel the current active download if exists and re-enqueue it
   if (globalDownloadManager && globalDownloadManager.activeDownload) {
     console.log('Cancelling active download before pausing');
@@ -643,7 +653,8 @@ function handlePauseDownload(sendResponse) {
   sendResponse({ status: 'paused' });
 }
 
-function handleStopDownload(sendResponse) {
+async function handleStopDownload(sendResponse) {
+  await restoreReady;
   // Set discovery cancellation flag to abort any in-progress discovery
   discoveryCancelled = true;
 
@@ -919,6 +930,7 @@ async function discoverPurchases() {
 // Discover and immediately start downloads (single-step flow)
 async function handleDiscoverAndStart(sendResponse) {
   try {
+    await restoreReady;
     // Reset cancellation flag at the start of discovery
     discoveryCancelled = false;
 
