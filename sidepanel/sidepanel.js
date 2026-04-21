@@ -190,10 +190,11 @@ function formatFillWidth(percentage) {
 }
 
 // Keep displayed % in sync with a visibly non-empty bar: any real progress
-// shows as at least 1%.
+// shows as at least 1%, and never shows "100%" until the bar is actually full.
 function formatDisplayPercent(percentage) {
   if (percentage <= 0) return 0;
-  return Math.max(1, Math.round(percentage));
+  if (percentage >= 100) return 100;
+  return Math.max(1, Math.min(99, Math.round(percentage)));
 }
 
 function formatProgressStats(percentage, completed, total, active) {
@@ -459,3 +460,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     addLogEntry(message.message, message.logType);
   }
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    computeExactPercentage,
+    formatFillWidth,
+    formatDisplayPercent
+  };
+}
