@@ -41,6 +41,7 @@ async function initializePopup() {
     progressStats: document.getElementById('progressStats'),
     progressFill: document.getElementById('progressFill'),
     progressText: document.getElementById('progressText'),
+    progressStatus: document.getElementById('progressStatus'),
     currentItem: document.getElementById('currentItem'),
     controlsSection: document.querySelector('.controls-section'),
     startBtn: document.getElementById('startBtn'),
@@ -292,6 +293,12 @@ async function handlePauseDownload() {
 }
 
 async function handleResumeDownload() {
+  // Immediate feedback — the resume round-trip can take several seconds
+  // while the service worker wakes up and restores queue state.
+  elements.pauseBtn.textContent = 'Resuming...';
+  elements.pauseBtn.disabled = true;
+  showProgressStatus('Resuming downloads...');
+
   try {
     const response = await sendMessageToBackground({ type: 'START_DOWNLOAD' });
 
@@ -300,10 +307,29 @@ async function handleResumeDownload() {
       elements.pauseBtn.textContent = 'Pause';
       elements.pauseBtn.onclick = handlePauseDownload;
       addLogEntry('Download resumed', 'success');
+    } else {
+      // Unexpected response — revert UI so the user can try again
+      elements.pauseBtn.textContent = 'Resume';
     }
   } catch (error) {
+    elements.pauseBtn.textContent = 'Resume';
     addLogEntry('Failed to resume download', 'error');
+  } finally {
+    elements.pauseBtn.disabled = false;
+    hideProgressStatus();
   }
+}
+
+function showProgressStatus(message) {
+  if (!elements.progressStatus) return;
+  elements.progressStatus.textContent = message;
+  elements.progressStatus.style.display = 'block';
+}
+
+function hideProgressStatus() {
+  if (!elements.progressStatus) return;
+  elements.progressStatus.textContent = '';
+  elements.progressStatus.style.display = 'none';
 }
 
 async function handleStopDownload() {

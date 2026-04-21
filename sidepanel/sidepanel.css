@@ -172,6 +172,13 @@ body {
   margin-top: 8px;
 }
 
+.progress-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-top: 6px;
+}
+
 .progress-bar-container {
   position: relative;
   margin-bottom: 8px;
