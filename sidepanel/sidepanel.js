@@ -97,10 +97,11 @@ async function loadInitialState() {
 
         // Update progress display
         if (state.total > 0) {
-          const percentage = Math.round((state.completed / state.total) * 100);
-          elements.progressFill.style.width = `${percentage}%`;
-          elements.progressText.textContent = `${percentage}%`;
-          elements.progressStats.textContent = formatProgressStats(percentage, state.completed, state.total);
+          const exactPercentage = computeExactPercentage(state);
+          const displayPercentage = formatDisplayPercent(exactPercentage);
+          elements.progressFill.style.width = formatFillWidth(exactPercentage);
+          elements.progressText.textContent = `${displayPercentage}%`;
+          elements.progressStats.textContent = formatProgressStats(displayPercentage, state.completed, state.total);
         }
 
         // Set correct button state
@@ -169,6 +170,31 @@ function updateStartButtonVisibility(isAuthenticated, isDownloadActive) {
   } else {
     elements.startBtn.classList.remove('visible');
   }
+}
+
+function computeExactPercentage(stats) {
+  if (!stats || !stats.total) return 0;
+  const base = stats.completed / stats.total;
+  const inFlight = stats.active > 0 && typeof stats.currentJobPercent === 'number'
+    ? (stats.currentJobPercent / 100) / stats.total
+    : 0;
+  const combined = Math.min(1, base + inFlight);
+  return combined * 100;
+}
+
+// Rounded-corner container clips sub-10px fill to near-invisibility. Ensure
+// any nonzero progress renders with a visible minimum width.
+function formatFillWidth(percentage) {
+  if (percentage <= 0) return '0%';
+  return `max(10px, ${percentage.toFixed(2)}%)`;
+}
+
+// Keep displayed % in sync with a visibly non-empty bar: any real progress
+// shows as at least 1%, and never shows "100%" until the bar is actually full.
+function formatDisplayPercent(percentage) {
+  if (percentage <= 0) return 0;
+  if (percentage >= 100) return 100;
+  return Math.max(1, Math.min(99, Math.round(percentage)));
 }
 
 function formatProgressStats(percentage, completed, total, active) {
@@ -378,12 +404,13 @@ function addLogEntry(message, type = 'info') {
 // Update progress (will be called by background script)
 function updateProgress(stats) {
   if (stats.total > 0) {
-    const percentage = Math.round((stats.completed / stats.total) * 100);
-    elements.progressFill.style.width = `${percentage}%`;
-    elements.progressText.textContent = `${percentage}%`;
+    const exactPercentage = computeExactPercentage(stats);
+    const displayPercentage = formatDisplayPercent(exactPercentage);
+    elements.progressFill.style.width = formatFillWidth(exactPercentage);
+    elements.progressText.textContent = `${displayPercentage}%`;
 
     // Update progress stats text
-    elements.progressStats.textContent = formatProgressStats(percentage, stats.completed, stats.total, stats.active);
+    elements.progressStats.textContent = formatProgressStats(displayPercentage, stats.completed, stats.total, stats.active);
 
     if (stats.currentAlbum) {
       elements.currentItem.querySelector('.current-album').textContent = stats.currentAlbum;
@@ -433,3 +460,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     addLogEntry(message.message, message.logType);
   }
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    computeExactPercentage,
+    formatFillWidth,
+    formatDisplayPercent
+  };
+}

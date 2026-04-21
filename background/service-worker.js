@@ -1138,7 +1138,10 @@ function broadcastProgress() {
     isActive: downloadState.isActive,
     isPaused: downloadQueue.isPaused,
     queueSize: queueStats.total,
-    currentJob: currentDownloadJob ? currentDownloadJob.getStatusText() : null
+    currentJob: currentDownloadJob ? currentDownloadJob.getStatusText() : null,
+    currentJobPercent: currentDownloadJob && currentDownloadJob.status === 'downloading'
+      ? (currentDownloadJob.progress?.percentComplete ?? 0)
+      : 0
   };
 
   // Send to all extension views (popup, etc)

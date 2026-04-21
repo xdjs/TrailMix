@@ -57,3 +57,4 @@ temp/
 # Chrome Web Store submission files (local only)
 STORE_LISTING.md
 SUBMISSION_CHECKLIST.md
+.gstack/
